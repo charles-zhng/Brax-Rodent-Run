@@ -130,7 +130,7 @@ wandb.run.name = (
 
 def wandb_progress(num_steps, metrics):
     metrics["num_steps"] = num_steps
-    wandb.log(metrics, commit=True)
+    wandb.log(metrics, commit=False)
 
 
 def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
@@ -151,6 +151,32 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         state = jit_step(state, ctrl)
         rollout.append(state.pipeline_state)
 
+    q_heights = [data.q[2] for data in rollout]
+    qpos_heights = [data.qpos[2] for data in rollout]
+    table = wandb.Table(data=q_heights, columns=["frame", "q_heights"])
+    wandb.log(
+        {
+            "eval/rollout_q_heights": wandb.plot.line(
+                table,
+                "frame",
+                "q_heights",
+                title="q_heights for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    table = wandb.Table(data=qpos_heights, columns=["frame", "qpos_heights"])
+    wandb.log(
+        {
+            "eval/rollout_qpos_heights": wandb.plot.line(
+                table,
+                "frame",
+                "qpos_heights",
+                title="qpos_heights for each rollout frame",
+            )
+        },
+        commit=False,
+    )
     # Render the walker with the reference expert demonstration trajectory
     os.environ["MUJOCO_GL"] = "osmesa"
     qposes_rollout = [data.qpos for data in rollout]
