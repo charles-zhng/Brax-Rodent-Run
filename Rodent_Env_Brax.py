@@ -26,7 +26,7 @@ class Rodent(PipelineEnv):
         ctrl_cost_weight=0.001,
         pos_reward_weight=100.0,
         quat_reward_weight=3.0,
-        healthy_reward=1.0,
+        healthy_reward=0.25,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.03, 0.5),
         reset_noise_scale=1e-3,
@@ -78,7 +78,7 @@ class Rodent(PipelineEnv):
         """Resets the environment to an initial state."""
         rng, rng1, rng2, rng_pos = jax.random.split(rng, 4)
 
-        start_frame = jax.random.randint(rng, (), 0, 100)
+        start_frame = jax.random.randint(rng, (), 0, 50)
 
         info = {
             "cur_frame": start_frame,
@@ -120,15 +120,10 @@ class Rodent(PipelineEnv):
         info = state.info.copy()
         info["cur_frame"] += 1
         pos_reward = self._pos_reward_weight * jp.exp(
-            -400
-            * (
-                jp.linalg.norm(
-                    data.qpos[:3] - (self._track_pos[info["cur_frame"]])
-                )
-            )
+            -400 * jp.sum(data.qpos[:3] - self._track_pos[info["cur_frame"]])**2
         )
         quat_reward =  self._quat_reward_weight * jp.exp(
-            -2 * jp.linalg.norm(self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]]))
+            -2 * jp.sum(self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]])**2)
             )
 
         min_z, max_z = self._healthy_z_range
