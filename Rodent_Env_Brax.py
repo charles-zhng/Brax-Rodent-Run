@@ -21,12 +21,15 @@ class Rodent(PipelineEnv):
     def __init__(
         self,
         track_pos: jp.ndarray,
+        track_quat: jp.ndarray,
         forward_reward_weight=10,
-        ctrl_cost_weight=0.1,
+        ctrl_cost_weight=0.001,
+        pos_reward_weight=100.0,
+        quat_reward_weight=3.0,
         healthy_reward=1.0,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.03, 0.5),
-        reset_noise_scale=1e-2,
+        reset_noise_scale=1e-3,
         solver="cg",
         iterations: int = 6,
         ls_iterations: int = 6,
@@ -60,6 +63,9 @@ class Rodent(PipelineEnv):
         super().__init__(sys, **kwargs)
 
         self._track_pos = track_pos
+        self._track_quat = track_quat
+        self._pos_reward_weight = pos_reward_weight
+        self._quat_reward_weight = quat_reward_weight
         self._forward_reward_weight = forward_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
         self._healthy_reward = healthy_reward
@@ -79,17 +85,28 @@ class Rodent(PipelineEnv):
         }
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
-        qpos = jp.array(self.sys.qpos0).at[:3].set(
-            self._track_pos[start_frame]
-        ) + jax.random.uniform(rng1, (self.sys.nq,), minval=low, maxval=hi)
+        
+        # Add pos (without z height)
+        qpos_with_pos = jp.array(self.sys.qpos0).at[:2].set(
+            self._track_pos[start_frame][:2]
+        )
+        
+        # Add quat
+        new_qpos = qpos_with_pos.at[3:7].set(
+            self._track_quat[start_frame]
+        )
+        
+        # Add noise
+        qpos = new_qpos + jax.random.uniform(rng1, (self.sys.nq,), minval=low, maxval=hi)
         qvel = jax.random.uniform(rng2, (self.sys.nv,), minval=low, maxval=hi)
 
         data = self.pipeline_init(qpos, qvel)
 
-        obs = self._get_obs(data, jp.zeros(self.sys.nu), start_frame)
+        obs = self._get_obs(data, start_frame)
         reward, done, zero = jp.zeros(3)
         metrics = {
             "pos_reward": zero,
+            "quat_reward": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
         }
@@ -102,15 +119,17 @@ class Rodent(PipelineEnv):
 
         info = state.info.copy()
         info["cur_frame"] += 1
-
-        pos_reward = jp.exp(
-            -100
+        pos_reward = self._pos_reward_weight * jp.exp(
+            -400
             * (
                 jp.linalg.norm(
-                    data.qpos[:3] - (self._track_pos[state.info["cur_frame"]])
+                    data.qpos[:3] - (self._track_pos[info["cur_frame"]])
                 )
             )
         )
+        quat_reward =  self._quat_reward_weight * jp.exp(
+            -2 * jp.linalg.norm(self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]]))
+            )
 
         min_z, max_z = self._healthy_z_range
         is_healthy = jp.where(data.q[2] < min_z, 0.0, 1.0)
@@ -122,11 +141,12 @@ class Rodent(PipelineEnv):
 
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
-        obs = self._get_obs(data, action, info["cur_frame"])
+        obs = self._get_obs(data, info["cur_frame"])
         reward = pos_reward + healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         state.metrics.update(
             pos_reward=pos_reward,
+            quat_reward = quat_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
         )
@@ -136,14 +156,16 @@ class Rodent(PipelineEnv):
         )
 
     def _get_obs(
-        self, data: mjx.Data, action: jp.ndarray, cur_frame: int
+        self, data: mjx.Data, cur_frame: int
     ) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
         # get relative tracking position in local frame
         track_pos_local = self.emil_to_local(
             data, self._track_pos[cur_frame + 1] - data.qpos[:3]
         )
-        track_pos_local = jp.concatenate([o.flatten() for o in track_pos_local])
+        track_pos_local = track_pos_local.flatten() # jp.concatenate([o.flatten() for o in track_pos_local])
+        
+        quat_dist = self._bounded_quat_dist(data.qpos[3:7], self._track_quat[cur_frame + 1]).flatten()
 
         # external_contact_forces are excluded
         return jp.concatenate(
@@ -154,6 +176,7 @@ class Rodent(PipelineEnv):
                 data.cvel[1:].ravel(),
                 data.qfrc_actuator,
                 track_pos_local,
+                quat_dist,
             ]
         )
 
@@ -190,3 +213,25 @@ class Rodent(PipelineEnv):
                 "`vec_in_world_frame` should have shape with final "
                 "dimension 2 or 3: got {}".format(vec_in_world_frame.shape)
             )
+            
+    def _bounded_quat_dist(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+        """Computes a quaternion distance limiting the difference to a max of pi/2.
+
+        This function supports an arbitrary number of batch dimensions, B.
+
+        Args:
+          source: a quaternion, shape (B, 4).
+          target: another quaternion, shape (B, 4).
+
+        Returns:
+          Quaternion distance, shape (B, 1).
+        """
+        source /= jp.linalg.norm(source, axis=-1, keepdims=True)
+        target /= jp.linalg.norm(target, axis=-1, keepdims=True)
+        # "Distance" in interval [-1, 1].
+        dist = 2 * jp.einsum("...i,...i", source, target) ** 2 - 1
+        # Clip at 1 to avoid occasional machine epsilon leak beyond 1.
+        dist = jp.minimum(1.0, dist)
+        # Divide by 2 and add an axis to ensure consistency with expected return
+        # shape and magnitude.
+        return 0.5 * jp.arccos(dist)[..., np.newaxis]

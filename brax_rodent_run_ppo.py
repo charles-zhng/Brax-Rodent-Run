@@ -82,6 +82,7 @@ env_name = config["env_name"]
 env = envs.get_environment(
     env_name,
     track_pos=reference_clip.position,
+    track_quat=reference_clip.quaternion,
     terminate_when_unhealthy=config["terminate_when_unhealthy"],
     solver=config["solver"],
     iterations=config["iterations"],
