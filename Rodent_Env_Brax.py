@@ -28,7 +28,7 @@ class Rodent(PipelineEnv):
         quat_reward_weight=3.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
-        healthy_z_range=(0.03, 0.5),
+        healthy_z_range=(-0.02, 0.5),
         reset_noise_scale=1e-3,
         solver="cg",
         iterations: int = 6,

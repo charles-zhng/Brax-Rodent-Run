@@ -27,8 +27,12 @@ FLAGS = flags.FLAGS
 n_gpus = jax.device_count(backend="gpu")
 print(f"Using {n_gpus} GPUs")
 
-os.environ["XLA_FLAGS"] = (
-    "--xla_gpu_enable_triton_softmax_fusion=true " "--xla_gpu_triton_gemm_any=True "
+os.environ['XLA_FLAGS'] = (
+    '--xla_gpu_enable_triton_softmax_fusion=true '
+    '--xla_gpu_triton_gemm_any=True '
+    '--xla_gpu_enable_async_collectives=true '
+    '--xla_gpu_enable_latency_hiding_scheduler=true '
+    '--xla_gpu_enable_highest_priority_async_stream=true '
 )
 
 flags.DEFINE_enum("solver", "cg", ["cg", "newton"], "constraint solver")
@@ -46,11 +50,11 @@ config = {
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
     "learning_rate": 5e-5,
-    "terminate_when_unhealthy": False,
+    "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 8,
-    "ls_iterations": 8,
+    "iterations": 7,
+    "ls_iterations": 7,
     "vision": False,
 }
 
@@ -106,7 +110,7 @@ train_fn = functools.partial(
     unroll_length=10,
     num_minibatches=64,
     num_updates_per_batch=8,
-    discounting=0.97,
+    discounting=0.99,
     learning_rate=config["learning_rate"],
     entropy_cost=1e-3,
     num_envs=config["num_envs"],
@@ -144,7 +148,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     state = jit_reset(reset_rng)
 
     rollout = [state.pipeline_state]
-    for i in range(500):
+    for i in range(200):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
@@ -153,7 +157,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     q_heights = [data.q[2] for data in rollout]
     qpos_heights = [data.qpos[2] for data in rollout]
-    table = wandb.Table(data=q_heights, columns=["frame", "q_heights"])
+    table = wandb.Table(data=[[x, y] for (x, y) in zip(range(len(q_heights)), q_heights)], columns=["frame", "q_heights"])
     wandb.log(
         {
             "eval/rollout_q_heights": wandb.plot.line(
@@ -165,18 +169,18 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    table = wandb.Table(data=qpos_heights, columns=["frame", "qpos_heights"])
-    wandb.log(
-        {
-            "eval/rollout_qpos_heights": wandb.plot.line(
-                table,
-                "frame",
-                "qpos_heights",
-                title="qpos_heights for each rollout frame",
-            )
-        },
-        commit=False,
-    )
+    # table = wandb.Table(data=[[x, y] for (x, y) in zip(range(len(qpos_heights)), qpos_heights)], columns=["frame", "qpos_heights"])
+    # wandb.log(
+    #     {
+    #         "eval/rollout_qpos_heights": wandb.plot.line(
+    #             table,
+    #             "frame",
+    #             "qpos_heights",
+    #             title="qpos_heights for each rollout frame",
+    #         )
+    #     },
+    #     commit=False,
+    # )
     # Render the walker with the reference expert demonstration trajectory
     os.environ["MUJOCO_GL"] = "osmesa"
     qposes_rollout = [data.qpos for data in rollout]
