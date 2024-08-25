@@ -13,6 +13,7 @@ import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
 from jax import numpy as jp
+from brax.training.agents.ppo import networks as ppo_networks
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -27,12 +28,12 @@ FLAGS = flags.FLAGS
 n_gpus = jax.device_count(backend="gpu")
 print(f"Using {n_gpus} GPUs")
 
-os.environ['XLA_FLAGS'] = (
-    '--xla_gpu_enable_triton_softmax_fusion=true '
-    '--xla_gpu_triton_gemm_any=True '
-    '--xla_gpu_enable_async_collectives=true '
-    '--xla_gpu_enable_latency_hiding_scheduler=true '
-    '--xla_gpu_enable_highest_priority_async_stream=true '
+os.environ["XLA_FLAGS"] = (
+    "--xla_gpu_enable_triton_softmax_fusion=true "
+    "--xla_gpu_triton_gemm_any=True "
+    "--xla_gpu_enable_async_collectives=true "
+    "--xla_gpu_enable_latency_hiding_scheduler=true "
+    "--xla_gpu_enable_highest_priority_async_stream=true "
 )
 
 flags.DEFINE_enum("solver", "cg", ["cg", "newton"], "constraint solver")
@@ -110,12 +111,17 @@ train_fn = functools.partial(
     unroll_length=10,
     num_minibatches=64,
     num_updates_per_batch=8,
-    discounting=0.99,
+    discounting=0.95,
     learning_rate=config["learning_rate"],
     entropy_cost=1e-3,
     num_envs=config["num_envs"],
     batch_size=config["batch_size"],
     seed=0,
+    network_factory=functools.partial(
+        ppo_networks.make_ppo_networks,
+        policy_hidden_layer_sizes=(256, 256),
+        value_hidden_layer_sizes=(256, 256),
+    ),
 )
 
 import uuid
@@ -155,32 +161,23 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         state = jit_step(state, ctrl)
         rollout.append(state.pipeline_state)
 
-    q_heights = [data.q[2] for data in rollout]
-    qpos_heights = [data.qpos[2] for data in rollout]
-    table = wandb.Table(data=[[x, y] for (x, y) in zip(range(len(q_heights)), q_heights)], columns=["frame", "q_heights"])
+    torso_heights = [data.xpos[env._torso_idx][2] for data in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(torso_heights)), torso_heights)],
+        columns=["frame", "torso_heights"],
+    )
     wandb.log(
         {
-            "eval/rollout_q_heights": wandb.plot.line(
+            "eval/rollout_torso_heights": wandb.plot.line(
                 table,
                 "frame",
-                "q_heights",
-                title="q_heights for each rollout frame",
+                "torso_heights",
+                title="torso_heights for each rollout frame",
             )
         },
         commit=False,
     )
-    # table = wandb.Table(data=[[x, y] for (x, y) in zip(range(len(qpos_heights)), qpos_heights)], columns=["frame", "qpos_heights"])
-    # wandb.log(
-    #     {
-    #         "eval/rollout_qpos_heights": wandb.plot.line(
-    #             table,
-    #             "frame",
-    #             "qpos_heights",
-    #             title="qpos_heights for each rollout frame",
-    #         )
-    #     },
-    #     commit=False,
-    # )
+
     # Render the walker with the reference expert demonstration trajectory
     os.environ["MUJOCO_GL"] = "osmesa"
     qposes_rollout = [data.qpos for data in rollout]
