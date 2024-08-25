@@ -93,6 +93,7 @@ class Rodent(PipelineEnv):
 
         info = {
             "cur_frame": start_frame,
+            "summed_pos_distance": 0.0,
         }
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
@@ -130,9 +131,8 @@ class Rodent(PipelineEnv):
 
         info = state.info.copy()
         info["cur_frame"] += 1
-        pos_reward = self._pos_reward_weight * jp.exp(
-            -400 * jp.sum(data.qpos[:3] - self._track_pos[info["cur_frame"]]) ** 2
-        )
+        pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
+        pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
         quat_reward = self._quat_reward_weight * jp.exp(
             -4
             * jp.sum(
@@ -151,11 +151,15 @@ class Rodent(PipelineEnv):
         else:
             healthy_reward = self._healthy_reward * is_healthy
 
+        summed_pos_distance = jp.sum((pos_distance * jp.array([1.0, 1.0, 0.2])) ** 2)
+        too_far = jp.where(summed_pos_distance > 1, 1.0, 0.0)
+        info["summed_pos_distance"] = summed_pos_distance
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
         reward = pos_reward + healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
+        done = jp.max(jp.array([done, too_far]))
         state.metrics.update(
             pos_reward=pos_reward,
             quat_reward=quat_reward,
@@ -170,7 +174,11 @@ class Rodent(PipelineEnv):
     def _get_obs(self, data: mjx.Data, cur_frame: int) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
         track_pos_local = jax.vmap(self.emil_to_local, in_axes=(None, 0))(
-            self._track_pos[cur_frame + 1 : cur_frame + 1 + self._ref_len]
+            jax.lax.dynamic_slice(
+                self._track_pos,
+                (cur_frame + 1, 0),
+                (self._ref_len, self._track_pos.shape[1]),
+            )
             - data.qpos[:3]
         ).flatten()
         # get relative tracking position in local frame
@@ -180,7 +188,9 @@ class Rodent(PipelineEnv):
 
         quat_dist = jax.vmap(self._bounded_quat_dist, in_axes=(None, 0))(
             data.qpos[3:7],
-            self._track_quat[cur_frame + 1 : cur_frame + 1 + self._ref_len],
+            jax.lax.dynamic_slice(
+                self._track_quat, (cur_frame + 1, 0), (self._ref_len, 4)
+            ),
         ).flatten()
 
         # external_contact_forces are excluded

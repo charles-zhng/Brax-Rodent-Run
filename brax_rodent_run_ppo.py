@@ -39,7 +39,6 @@ os.environ["XLA_FLAGS"] = (
 flags.DEFINE_enum("solver", "cg", ["cg", "newton"], "constraint solver")
 flags.DEFINE_integer("iterations", 4, "number of solver iterations")
 flags.DEFINE_integer("ls_iterations", 4, "number of linesearch iterations")
-flags.DEFINE_boolean("vision", False, "render vision in obs")
 
 config = {
     "env_name": "rodent",
@@ -91,7 +90,6 @@ env = envs.get_environment(
     solver=config["solver"],
     iterations=config["iterations"],
     ls_iterations=config["ls_iterations"],
-    vision=config["vision"],
 )
 
 # define the jit reset/step functions
@@ -153,12 +151,33 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     state = jit_reset(reset_rng)
 
     rollout = [state.pipeline_state]
+    summed_pos_distances = []
     for i in range(200):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
         state = jit_step(state, ctrl)
+        summed_pos_distances.append(state.info["summed_pos_distance"])
         rollout.append(state.pipeline_state)
+
+    table = wandb.Table(
+        data=[
+            [x, y]
+            for (x, y) in zip(range(len(summed_pos_distances)), summed_pos_distances)
+        ],
+        columns=["frame", "summed_pos_distances"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_summed_pos_distances": wandb.plot.line(
+                table,
+                "frame",
+                "summed_pos_distances",
+                title="summed_pos_distances for each rollout frame",
+            )
+        },
+        commit=False,
+    )
 
     torso_heights = [data.xpos[env._torso_idx][2] for data in rollout]
     table = wandb.Table(
