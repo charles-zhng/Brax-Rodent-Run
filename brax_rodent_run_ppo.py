@@ -56,7 +56,6 @@ config = {
     "solver": "cg",
     "iterations": 7,
     "ls_iterations": 7,
-    "vision": False,
 }
 
 envs.register_environment("rodent", Rodent)

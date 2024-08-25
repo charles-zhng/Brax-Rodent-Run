@@ -3,7 +3,7 @@ from jax import numpy as jp
 
 from brax.envs.base import PipelineEnv, State
 from brax.io import mjcf as mjcf_brax
-
+from dm_control.locomotion.walkers import rescale
 from dm_control import mjcf as mjcf_dm
 
 import mujoco
@@ -22,6 +22,7 @@ class Rodent(PipelineEnv):
         self,
         track_pos: jp.ndarray,
         track_quat: jp.ndarray,
+        ref_len: int = 5,
         forward_reward_weight=10,
         ctrl_cost_weight=0.01,
         pos_reward_weight=100.0,
@@ -33,13 +34,19 @@ class Rodent(PipelineEnv):
         solver="cg",
         iterations: int = 6,
         ls_iterations: int = 6,
-        vision=False,
         **kwargs,
     ):
         # Load the rodent model via dm_control
         # dm_rodent = rodent.Rodent()
         # physics = mjcf_dm.Physics.from_mjcf_model(dm_rodent.mjcf_model)
         # mj_model = physics.model.ptr
+        root = mjcf_dm.from_path(_XML_PATH)
+        rescale.rescale_subtree(
+            root,
+            0.9,
+            0.9,
+        )
+        mj_model = mjcf_dm.Physics.from_mjcf_model(root).model.ptr
         os.environ["MUJOCO_GL"] = "osmesa"
         mj_model = mujoco.MjModel.from_xml_path(_XML_PATH)
         mj_model.opt.solver = {
@@ -68,6 +75,7 @@ class Rodent(PipelineEnv):
 
         self._track_pos = track_pos
         self._track_quat = track_quat
+        self._ref_len = ref_len
         self._pos_reward_weight = pos_reward_weight
         self._quat_reward_weight = quat_reward_weight
         self._forward_reward_weight = forward_reward_weight
@@ -76,13 +84,12 @@ class Rodent(PipelineEnv):
         self._terminate_when_unhealthy = terminate_when_unhealthy
         self._healthy_z_range = healthy_z_range
         self._reset_noise_scale = reset_noise_scale
-        self._vision = vision
 
     def reset(self, rng) -> State:
         """Resets the environment to an initial state."""
         rng, rng1, rng2, rng_pos = jax.random.split(rng, 4)
 
-        start_frame = jax.random.randint(rng, (), 0, 50)
+        start_frame = jax.random.randint(rng, (), 0, 44)
 
         info = {
             "cur_frame": start_frame,
@@ -162,16 +169,18 @@ class Rodent(PipelineEnv):
 
     def _get_obs(self, data: mjx.Data, cur_frame: int) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
+        track_pos_local = jax.vmap(self.emil_to_local, in_axes=(None, 0))(
+            self._track_pos[cur_frame + 1 : cur_frame + 1 + self._ref_len]
+            - data.qpos[:3]
+        ).flatten()
         # get relative tracking position in local frame
-        track_pos_local = self.emil_to_local(
-            data, self._track_pos[cur_frame + 1] - data.qpos[:3]
-        )
-        track_pos_local = (
-            track_pos_local.flatten()
-        )  # jp.concatenate([o.flatten() for o in track_pos_local])
+        # track_pos_local = self.emil_to_local(
+        #     data,
+        # ).flatten()
 
-        quat_dist = self._bounded_quat_dist(
-            data.qpos[3:7], self._track_quat[cur_frame + 1]
+        quat_dist = jax.vmap(self._bounded_quat_dist, in_axes=(None, 0))(
+            data.qpos[3:7],
+            self._track_quat[cur_frame + 1 : cur_frame + 1 + self._ref_len],
         ).flatten()
 
         # external_contact_forces are excluded
@@ -188,7 +197,7 @@ class Rodent(PipelineEnv):
         )
 
     def emil_to_local(self, data, vec_in_world_frame):
-        xmat = jp.reshape(data.xmat[1], (3, 3))
+        xmat = jp.reshape(data.xmat[0], (3, 3))
         return xmat @ vec_in_world_frame
 
     def to_local(self, data, vec_in_world_frame):
