@@ -44,19 +44,19 @@ config = {
     "env_name": "rodent",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 1024 * n_gpus,
+    "num_envs": 2048 * n_gpus,
     "num_timesteps": 500_000_000,
     "eval_every": 5_000_000,
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
-    "learning_rate": 1e-4,
+    "learning_rate": 6e-4,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.1,
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 100.0,
     "quat_reward_weight": 3.0,
     "healthy_reward": 0.25,
-    "healthy_z_range": (0.035, 0.5),
+    "healthy_z_range": (0.03, 0.5),
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
@@ -123,10 +123,10 @@ train_fn = functools.partial(
     episode_length=episode_length,
     normalize_observations=True,
     action_repeat=1,
-    unroll_length=10,
-    num_minibatches=64,
+    unroll_length=16,
+    num_minibatches=32,
     num_updates_per_batch=8,
-    discounting=0.95,
+    discounting=0.99,
     learning_rate=config["learning_rate"],
     entropy_cost=1e-3,
     num_envs=config["num_envs"],
@@ -249,7 +249,9 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     # render while stepping using mujoco
     video_path = f"{model_path}/{num_steps}.mp4"
 
-    with imageio.get_writer(video_path, fps=int((1.0 / env.dt) * env._steps_for_cur_frame)) as video:
+    with imageio.get_writer(
+        video_path, fps=int((1.0 / env.dt) / env._steps_for_cur_frame)
+    ) as video:
         for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)

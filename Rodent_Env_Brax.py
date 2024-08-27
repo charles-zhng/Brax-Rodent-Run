@@ -16,6 +16,7 @@ import os
 _XML_PATH = "./models/rodent_new.xml"
 _MOCAP_HZ = 50
 
+
 class Rodent(PipelineEnv):
 
     def __init__(
@@ -30,7 +31,7 @@ class Rodent(PipelineEnv):
         quat_reward_weight=1.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
-        healthy_z_range=(0.04, 0.5),
+        healthy_z_range=(0.03, 0.5),
         physics_steps_per_control_step=10,
         reset_noise_scale=1e-3,
         solver="cg",
@@ -60,14 +61,20 @@ class Rodent(PipelineEnv):
 
         kwargs["n_frames"] = kwargs.get("n_frames", physics_steps_per_control_step)
         kwargs["backend"] = "mjx"
-        
-        max_physics_steps_per_control_step = int((1.0 / (_MOCAP_HZ * mj_model.opt.timestep)))
+
+        max_physics_steps_per_control_step = int(
+            (1.0 / (_MOCAP_HZ * mj_model.opt.timestep))
+        )
 
         super().__init__(sys, **kwargs)
         if max_physics_steps_per_control_step % physics_steps_per_control_step != 0:
-            raise ValueError(f"physics_steps_per_control_step ({physics_steps_per_control_step}) must be a factor of ({max_physics_steps_per_control_step})")
-        
-        self._steps_for_cur_frame = max_physics_steps_per_control_step / physics_steps_per_control_step
+            raise ValueError(
+                f"physics_steps_per_control_step ({physics_steps_per_control_step}) must be a factor of ({max_physics_steps_per_control_step})"
+            )
+
+        self._steps_for_cur_frame = (
+            max_physics_steps_per_control_step / physics_steps_per_control_step
+        )
         print(f"self._steps_for_cur_frame: {self._steps_for_cur_frame}")
 
         self._torso_idx = mujoco.mj_name2id(
@@ -134,9 +141,13 @@ class Rodent(PipelineEnv):
         # Logic for moving to next frame to track to maintain timesteps alignment
         info = state.info.copy()
         info["steps_taken_cur_frame"] += 1
-        info["cur_frame"] += jp.where(info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 1, 0)
-        info["steps_taken_cur_frame"] *= jp.where(info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 0, 1)
-        
+        info["cur_frame"] += jp.where(
+            info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 1, 0
+        )
+        info["steps_taken_cur_frame"] *= jp.where(
+            info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 0, 1
+        )
+
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
         pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
         quat_reward = self._quat_reward_weight * jp.exp(
@@ -186,7 +197,7 @@ class Rodent(PipelineEnv):
                 (cur_frame + 1, 0),
                 (self._ref_len, self._track_pos.shape[1]),
             )
-            - data.qpos[:3]
+            - data.qpos[:3],
         ).flatten()
         # get relative tracking position in local frame
         # track_pos_local = self.emil_to_local(
@@ -205,9 +216,9 @@ class Rodent(PipelineEnv):
             [
                 data.qpos,
                 data.qvel,
-                data.cinert[1:].ravel(),
-                data.cvel[1:].ravel(),
-                data.qfrc_actuator,
+                # data.cinert[1:].ravel(),
+                # data.cvel[1:].ravel(),
+                # data.qfrc_actuator,
                 track_pos_local,
                 quat_dist,
             ]
