@@ -14,7 +14,7 @@ import numpy as np
 import os
 
 _XML_PATH = "./models/rodent_new.xml"
-
+_MOCAP_HZ = 50
 
 class Rodent(PipelineEnv):
 
@@ -24,22 +24,20 @@ class Rodent(PipelineEnv):
         track_quat: jp.ndarray,
         ref_len: int = 5,
         forward_reward_weight=10,
+        too_far_dist=0.1,
         ctrl_cost_weight=0.01,
-        pos_reward_weight=100.0,
-        quat_reward_weight=3.0,
+        pos_reward_weight=10.0,
+        quat_reward_weight=1.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.04, 0.5),
+        physics_steps_per_control_step=10,
         reset_noise_scale=1e-3,
         solver="cg",
         iterations: int = 6,
         ls_iterations: int = 6,
         **kwargs,
     ):
-        # Load the rodent model via dm_control
-        # dm_rodent = rodent.Rodent()
-        # physics = mjcf_dm.Physics.from_mjcf_model(dm_rodent.mjcf_model)
-        # mj_model = physics.model.ptr
         root = mjcf_dm.from_path(_XML_PATH)
         rescale.rescale_subtree(
             root,
@@ -60,19 +58,22 @@ class Rodent(PipelineEnv):
 
         sys = mjcf_brax.load_model(mj_model)
 
-        physics_steps_per_control_step = (
-            10  # 10 times 0.002 = 0.02 => fps of tracking data
-        )
-
         kwargs["n_frames"] = kwargs.get("n_frames", physics_steps_per_control_step)
         kwargs["backend"] = "mjx"
+        
+        max_physics_steps_per_control_step = int((1.0 / (_MOCAP_HZ * mj_model.opt.timestep)))
 
         super().__init__(sys, **kwargs)
+        if max_physics_steps_per_control_step % physics_steps_per_control_step != 0:
+            raise ValueError(f"physics_steps_per_control_step ({physics_steps_per_control_step}) must be a factor of ({max_physics_steps_per_control_step})")
+        
+        self._steps_for_cur_frame = max_physics_steps_per_control_step / physics_steps_per_control_step
+        print(f"self._steps_for_cur_frame: {self._steps_for_cur_frame}")
 
         self._torso_idx = mujoco.mj_name2id(
             mj_model, mujoco.mju_str2Type("body"), "torso"
         )
-
+        self._too_far_dist = too_far_dist
         self._track_pos = track_pos
         self._track_quat = track_quat
         self._ref_len = ref_len
@@ -93,6 +94,7 @@ class Rodent(PipelineEnv):
 
         info = {
             "cur_frame": start_frame,
+            "steps_taken_cur_frame": 0,
             "summed_pos_distance": 0.0,
         }
 
@@ -129,8 +131,12 @@ class Rodent(PipelineEnv):
         data0 = state.pipeline_state
         data = self.pipeline_step(data0, action)
 
+        # Logic for moving to next frame to track to maintain timesteps alignment
         info = state.info.copy()
-        info["cur_frame"] += 1
+        info["steps_taken_cur_frame"] += 1
+        info["cur_frame"] += jp.where(info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 1, 0)
+        info["steps_taken_cur_frame"] *= jp.where(info["steps_taken_cur_frame"] == self._steps_for_cur_frame, 0, 1)
+        
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
         pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
         quat_reward = self._quat_reward_weight * jp.exp(
@@ -152,7 +158,7 @@ class Rodent(PipelineEnv):
             healthy_reward = self._healthy_reward * is_healthy
 
         summed_pos_distance = jp.sum((pos_distance * jp.array([1.0, 1.0, 0.2])) ** 2)
-        too_far = jp.where(summed_pos_distance > 1, 1.0, 0.0)
+        too_far = jp.where(summed_pos_distance > self._too_far_dist, 1.0, 0.0)
         info["summed_pos_distance"] = summed_pos_distance
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
@@ -174,6 +180,7 @@ class Rodent(PipelineEnv):
     def _get_obs(self, data: mjx.Data, cur_frame: int) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
         track_pos_local = jax.vmap(self.emil_to_local, in_axes=(None, 0))(
+            data,
             jax.lax.dynamic_slice(
                 self._track_pos,
                 (cur_frame + 1, 0),

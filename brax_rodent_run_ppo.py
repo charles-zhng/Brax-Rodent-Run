@@ -31,9 +31,9 @@ print(f"Using {n_gpus} GPUs")
 os.environ["XLA_FLAGS"] = (
     "--xla_gpu_enable_triton_softmax_fusion=true "
     "--xla_gpu_triton_gemm_any=True "
-    "--xla_gpu_enable_async_collectives=true "
-    "--xla_gpu_enable_latency_hiding_scheduler=true "
-    "--xla_gpu_enable_highest_priority_async_stream=true "
+    # "--xla_gpu_enable_async_collectives=true "
+    # "--xla_gpu_enable_latency_hiding_scheduler=true "
+    # "--xla_gpu_enable_highest_priority_async_stream=true "
 )
 
 flags.DEFINE_enum("solver", "cg", ["cg", "newton"], "constraint solver")
@@ -49,7 +49,14 @@ config = {
     "eval_every": 5_000_000,
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
-    "learning_rate": 5e-5,
+    "learning_rate": 1e-4,
+    "physics_steps_per_control_step": 5,
+    "too_far_dist": 0.1,
+    "ctrl_cost_weight": 0.01,
+    "pos_reward_weight": 100.0,
+    "quat_reward_weight": 3.0,
+    "healthy_reward": 0.25,
+    "healthy_z_range": (0.035, 0.5),
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
@@ -90,8 +97,19 @@ env = envs.get_environment(
     solver=config["solver"],
     iterations=config["iterations"],
     ls_iterations=config["ls_iterations"],
+    too_far_dist=config["too_far_dist"],
+    ctrl_cost_weight=config["ctrl_cost_weight"],
+    pos_reward_weight=config["pos_reward_weight"],
+    quat_reward_weight=config["quat_reward_weight"],
+    healthy_reward=config["healthy_reward"],
+    healthy_z_range=config["healthy_z_range"],
+    physics_steps_per_control_step=config["physics_steps_per_control_step"],
 )
 
+# Episode length is equal to (clip length - random init range - traj length) * steps per cur frame
+# Will work on not hardcoding these values later
+episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
+print(f"episode_length {episode_length}")
 # define the jit reset/step functions
 jit_reset = jax.jit(env.reset)
 jit_step = jax.jit(env.step)
@@ -102,7 +120,7 @@ train_fn = functools.partial(
     num_timesteps=config["num_timesteps"],
     num_evals=int(config["num_timesteps"] / config["eval_every"]),
     reward_scaling=1,
-    episode_length=config["episode_length"],
+    episode_length=episode_length,
     normalize_observations=True,
     action_repeat=1,
     unroll_length=10,
@@ -231,7 +249,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     # render while stepping using mujoco
     video_path = f"{model_path}/{num_steps}.mp4"
 
-    with imageio.get_writer(video_path, fps=float(1.0 / env.dt)) as video:
+    with imageio.get_writer(video_path, fps=int((1.0 / env.dt) * env._steps_for_cur_frame)) as video:
         for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
