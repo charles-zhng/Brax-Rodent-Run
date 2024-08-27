@@ -23,6 +23,7 @@ class Rodent(PipelineEnv):
         self,
         track_pos: jp.ndarray,
         track_quat: jp.ndarray,
+        torque_actuators: bool = False,
         ref_len: int = 5,
         forward_reward_weight=10,
         too_far_dist=0.1,
@@ -40,6 +41,14 @@ class Rodent(PipelineEnv):
         **kwargs,
     ):
         root = mjcf_dm.from_path(_XML_PATH)
+        
+        # Convert to torque actuators
+        if torque_actuators:
+            for actuator in root.find_all("actuator"):
+                actuator.gainprm = [actuator.forcerange[1]]
+                del actuator.biastype
+                del actuator.biasprm
+            
         rescale.rescale_subtree(
             root,
             0.9,
@@ -130,6 +139,8 @@ class Rodent(PipelineEnv):
             "quat_reward": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
+            "too_far": zero,
+            "fall": zero,
         }
         return State(data, obs, reward, done, metrics, info)
 
@@ -175,6 +186,7 @@ class Rodent(PipelineEnv):
 
         obs = self._get_obs(data, info["cur_frame"])
         reward = pos_reward + quat_reward + healthy_reward - ctrl_cost
+        # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         done = jp.max(jp.array([done, too_far]))
         state.metrics.update(
@@ -182,6 +194,8 @@ class Rodent(PipelineEnv):
             quat_reward=quat_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
+            too_far=too_far,
+            fall=1-is_healthy,
         )
 
         return state.replace(
