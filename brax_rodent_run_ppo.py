@@ -5,7 +5,10 @@ import wandb
 import imageio
 import mujoco
 from brax import envs
-from brax.training.agents.ppo import train as ppo
+
+# from brax.training.agents.ppo import train as ppo
+import custom_ppo as ppo
+
 from brax.io import model
 import numpy as np
 from Rodent_Env_Brax import Rodent
@@ -143,7 +146,9 @@ import uuid
 run_id = uuid.uuid4()
 model_path = f"./model_checkpoints/{run_id}"
 
-run = wandb.init(project="vnl_debug", config=config, notes="pos + quat + healthy - ctrlcost")
+run = wandb.init(
+    project="vnl_debug", config=config, notes="pos + quat + healthy - ctrlcost"
+)
 
 
 wandb.run.name = (
@@ -161,6 +166,7 @@ rollout_env = envs.training.AutoResetWrapper(env)
 # define the jit reset/step functions
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
+
 
 # TODO: scan and jit this rollout
 def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
