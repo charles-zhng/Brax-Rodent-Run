@@ -9,8 +9,8 @@ def submit():
     """
     script = f"""#!/bin/bash
 #SBATCH -p olveczkygpu,gpu,gpu_requeue,serial_requeue # olveczky,cox,shared,serial_requeue # olveczkygpu,gpu_requeue
-#SBATCH --mem=64000 
-#SBATCH -c 16
+#SBATCH --mem=16000
+#SBATCH -c 4
 #SBATCH -N 1 
 # #SBATCH --constraint="a100"
 #SBATCH -t 0-5:00

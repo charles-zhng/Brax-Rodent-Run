@@ -49,13 +49,13 @@ config = {
     "eval_every": 5_000_000,
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
-    "learning_rate": 6e-4,
-    "torque_actuators": True,
+    "learning_rate": 1e-4,
+    "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.1,
     "ctrl_cost_weight": 0.01,
-    "pos_reward_weight": 100.0,
-    "quat_reward_weight": 3.0,
+    "pos_reward_weight": 10.0,
+    "quat_reward_weight": 10.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.03, 0.5),
     "terminate_when_unhealthy": True,
@@ -112,10 +112,6 @@ env = envs.get_environment(
 # Will work on not hardcoding these values later
 episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
-# define the jit reset/step functions
-jit_reset = jax.jit(env.reset)
-jit_step = jax.jit(env.step)
-
 
 train_fn = functools.partial(
     ppo.train,
@@ -147,7 +143,7 @@ import uuid
 run_id = uuid.uuid4()
 model_path = f"./model_checkpoints/{run_id}"
 
-run = wandb.init(project="vnl_debug", config=config, notes="")
+run = wandb.init(project="vnl_debug", config=config, notes="pos + quat + healthy - ctrlcost")
 
 
 wandb.run.name = (
@@ -160,8 +156,15 @@ def wandb_progress(num_steps, metrics):
     wandb.log(metrics, commit=False)
 
 
+# Wrap the env in the brax autoreset and episode wrappers
+rollout_env = envs.training.AutoResetWrapper(env)
+# define the jit reset/step functions
+jit_reset = jax.jit(rollout_env.reset)
+jit_step = jax.jit(rollout_env.step)
+
+# TODO: scan and jit this rollout
 def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
-    policy_params_key = jax.random.PRNGKey(0)
+    policy_params_key = jax.random.key(0)
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
@@ -172,7 +175,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     rollout = [state.pipeline_state]
     summed_pos_distances = []
-    for i in range(200):
+    for i in range(int(episode_length)):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
@@ -257,7 +260,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
-            renderer.update_scene(mj_data, camera=f"close_profile")
+            renderer.update_scene(mj_data, camera=f"close_profile-1")
             pixels = renderer.render()
             video.append_data(pixels)
             frames.append(pixels)

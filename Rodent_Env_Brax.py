@@ -186,7 +186,7 @@ class Rodent(PipelineEnv):
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
-        reward = pos_reward + quat_reward + healthy_reward - ctrl_cost
+        reward = quat_reward + healthy_reward - ctrl_cost
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         done = jp.max(jp.array([done, too_far]))
@@ -214,7 +214,7 @@ class Rodent(PipelineEnv):
                 (self._ref_len, self._track_pos.shape[1]),
             )
             - data.qpos[:3],
-            data.qpos[3:4],
+            data.qpos[3:7],
         ).flatten()
         # get relative tracking position in local frame
         # track_pos_local = self.emil_to_local(
@@ -238,7 +238,7 @@ class Rodent(PipelineEnv):
                 # data.cinert[1:].ravel(),
                 # data.cvel[1:].ravel(),
                 # data.qfrc_actuator,
-                track_pos_local,
+                # track_pos_local,
                 quat_dist,
             ]
         )
