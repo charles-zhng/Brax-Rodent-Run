@@ -3,6 +3,7 @@ from jax import numpy as jp
 
 from brax.envs.base import PipelineEnv, State
 from brax.io import mjcf as mjcf_brax
+from brax import math as brax_math
 from dm_control.locomotion.walkers import rescale
 from dm_control import mjcf as mjcf_dm
 
@@ -41,14 +42,14 @@ class Rodent(PipelineEnv):
         **kwargs,
     ):
         root = mjcf_dm.from_path(_XML_PATH)
-        
+
         # Convert to torque actuators
         if torque_actuators:
             for actuator in root.find_all("actuator"):
                 actuator.gainprm = [actuator.forcerange[1]]
                 del actuator.biastype
                 del actuator.biasprm
-            
+
         rescale.rescale_subtree(
             root,
             0.9,
@@ -195,7 +196,7 @@ class Rodent(PipelineEnv):
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
             too_far=too_far,
-            fall=1-is_healthy,
+            fall=1 - is_healthy,
         )
 
         return state.replace(
@@ -204,21 +205,25 @@ class Rodent(PipelineEnv):
 
     def _get_obs(self, data: mjx.Data, cur_frame: int) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
-        track_pos_local = jax.vmap(self.emil_to_local, in_axes=(None, 0))(
-            data,
+        track_pos_local = jax.vmap(
+            lambda a, b: brax_math.rotate(a, b), in_axes=(0, None)
+        )(
             jax.lax.dynamic_slice(
                 self._track_pos,
                 (cur_frame + 1, 0),
                 (self._ref_len, self._track_pos.shape[1]),
             )
             - data.qpos[:3],
+            data.qpos[3:4],
         ).flatten()
         # get relative tracking position in local frame
         # track_pos_local = self.emil_to_local(
         #     data,
         # ).flatten()
 
-        quat_dist = jax.vmap(self._bounded_quat_dist, in_axes=(None, 0))(
+        quat_dist = jax.vmap(
+            lambda a, b: brax_math.relative_quat(a, b), in_axes=(None, 0)
+        )(
             data.qpos[3:7],
             jax.lax.dynamic_slice(
                 self._track_quat, (cur_frame + 1, 0), (self._ref_len, 4)
@@ -239,7 +244,7 @@ class Rodent(PipelineEnv):
         )
 
     def emil_to_local(self, data, vec_in_world_frame):
-        xmat = jp.reshape(data.xmat[0], (3, 3))
+        xmat = jp.reshape(data.xmat[1], (3, 3))
         return xmat @ vec_in_world_frame
 
     def to_local(self, data, vec_in_world_frame):
