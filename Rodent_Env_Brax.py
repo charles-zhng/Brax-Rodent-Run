@@ -186,7 +186,7 @@ class Rodent(PipelineEnv):
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
-        reward = quat_reward + healthy_reward - ctrl_cost
+        reward = pos_reward + quat_reward + healthy_reward - ctrl_cost
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         done = jp.max(jp.array([done, too_far]))

@@ -8,7 +8,7 @@ from brax import envs
 
 # from brax.training.agents.ppo import train as ppo
 import custom_ppo as ppo
-
+import custom_wrappers
 from brax.io import model
 import numpy as np
 from Rodent_Env_Brax import Rodent
@@ -52,15 +52,15 @@ config = {
     "eval_every": 5_000_000,
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
-    "learning_rate": 1e-4,
+    "learning_rate": 7e-5,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
-    "too_far_dist": 0.1,
+    "too_far_dist": 0.005,
     "ctrl_cost_weight": 0.01,
-    "pos_reward_weight": 10.0,
-    "quat_reward_weight": 10.0,
+    "pos_reward_weight": 3.0,
+    "quat_reward_weight": 1.0,
     "healthy_reward": 0.25,
-    "healthy_z_range": (0.03, 0.5),
+    "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
@@ -147,7 +147,7 @@ run_id = uuid.uuid4()
 model_path = f"./model_checkpoints/{run_id}"
 
 run = wandb.init(
-    project="vnl_debug", config=config, notes="pos + quat + healthy - ctrlcost"
+    project="vnl_debug", config=config, notes="quat + alive"
 )
 
 
@@ -162,7 +162,7 @@ def wandb_progress(num_steps, metrics):
 
 
 # Wrap the env in the brax autoreset and episode wrappers
-rollout_env = envs.training.AutoResetWrapper(env)
+rollout_env = custom_wrappers.AutoResetWrapperTracking(env)
 # define the jit reset/step functions
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
