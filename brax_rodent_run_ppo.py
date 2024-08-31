@@ -50,7 +50,7 @@ config = {
     "num_envs": 2048 * n_gpus,
     "num_timesteps": 500_000_000,
     "eval_every": 5_000_000,
-    "episode_length": 200,
+    "episode_length": 150,
     "batch_size": 1024 * n_gpus,
     "learning_rate": 3e-4,
     "torque_actuators": False,
@@ -113,7 +113,7 @@ env = envs.get_environment(
 
 # Episode length is equal to (clip length - random init range - traj length) * steps per cur frame
 # Will work on not hardcoding these values later
-episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
+episode_length = (250 - 100 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
 
 train_fn = functools.partial(
@@ -146,9 +146,7 @@ import uuid
 run_id = uuid.uuid4()
 model_path = f"./model_checkpoints/{run_id}"
 
-run = wandb.init(
-    project="vnl_debug", config=config, notes="quat + alive"
-)
+run = wandb.init(project="vnl_debug", config=config, notes="quat + alive")
 
 
 wandb.run.name = (
@@ -189,10 +187,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     pos_rewards = [state.metrics["pos_reward"] for state in rollout]
     table = wandb.Table(
-        data=[
-            [x, y]
-            for (x, y) in zip(range(len(pos_rewards)), pos_rewards)
-        ],
+        data=[[x, y] for (x, y) in zip(range(len(pos_rewards)), pos_rewards)],
         columns=["frame", "pos_rewards"],
     )
     wandb.log(
@@ -206,7 +201,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
+
     summed_pos_distances = [state.info["summed_pos_distance"] for state in rollout]
     table = wandb.Table(
         data=[
@@ -260,6 +255,25 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     ref_traj = jax.tree_util.tree_map(f, reference_clip)
     qposes_ref = jp.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints])
 
+    done_array = [state.done for state in rollout]
+    reset_indices = np.where(done_array == 1)[0]
+    aligned_traj = np.zeros_like(qposes_ref)
+    # Set the first segment
+    aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
+
+    # Iterate through reset points
+    for i in range(len(reset_indices) - 1):
+        start = reset_indices[i] + 1
+        end = reset_indices[i + 1] + 1
+        length = end - start
+        aligned_traj[start:end] = qposes_ref[:length]
+
+    # Set the last segment
+    if reset_indices[-1] < len(done_array) - 1:
+        start = reset_indices[-1] + 1
+        length = len(done_array) - start
+        aligned_traj[start:] = qposes_ref[:length]
+
     mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_pair.xml")
 
     mj_model.opt.solver = {
@@ -282,10 +296,10 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     with imageio.get_writer(
         video_path, fps=int((1.0 / env.dt) / env._steps_for_cur_frame)
     ) as video:
-        for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
+        for qpos1, qpos2 in zip(aligned_traj, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
-            renderer.update_scene(mj_data, camera=f"close_profile-1")
+            renderer.update_scene(mj_data, camera=f"close_profile")
             pixels = renderer.render()
             video.append_data(pixels)
             frames.append(pixels)

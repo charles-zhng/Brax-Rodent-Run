@@ -107,7 +107,7 @@ class Rodent(PipelineEnv):
         """Resets the environment to an initial state."""
         rng, rng1, rng2, rng_pos = jax.random.split(rng, 4)
 
-        start_frame = jax.random.randint(rng, (), 0, 44)
+        start_frame = jax.random.randint(rng, (), 0, 94)
 
         info = {
             "cur_frame": start_frame,
