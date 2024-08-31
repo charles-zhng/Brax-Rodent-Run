@@ -52,10 +52,10 @@ config = {
     "eval_every": 5_000_000,
     "episode_length": 200,
     "batch_size": 1024 * n_gpus,
-    "learning_rate": 7e-5,
+    "learning_rate": 3e-4,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
-    "too_far_dist": 0.005,
+    "too_far_dist": 0.0015,
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 3.0,
     "quat_reward_weight": 1.0,
@@ -64,8 +64,8 @@ config = {
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 7,
-    "ls_iterations": 7,
+    "iterations": 6,
+    "ls_iterations": 6,
 }
 
 envs.register_environment("rodent", Rodent)
@@ -179,16 +179,35 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     state = jit_reset(reset_rng)
 
-    rollout = [state.pipeline_state]
-    summed_pos_distances = []
+    rollout = [state]
     for i in range(int(episode_length)):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
         state = jit_step(state, ctrl)
-        summed_pos_distances.append(state.info["summed_pos_distance"])
-        rollout.append(state.pipeline_state)
+        rollout.append(state)
 
+    pos_rewards = [state.metrics["pos_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[
+            [x, y]
+            for (x, y) in zip(range(len(pos_rewards)), pos_rewards)
+        ],
+        columns=["frame", "pos_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_pos_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "pos_rewards",
+                title="pos_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    
+    summed_pos_distances = [state.info["summed_pos_distance"] for state in rollout]
     table = wandb.Table(
         data=[
             [x, y]
@@ -208,7 +227,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         commit=False,
     )
 
-    torso_heights = [data.xpos[env._torso_idx][2] for data in rollout]
+    torso_heights = [state.pipeline_state.xpos[env._torso_idx][2] for state in rollout]
     table = wandb.Table(
         data=[[x, y] for (x, y) in zip(range(len(torso_heights)), torso_heights)],
         columns=["frame", "torso_heights"],
@@ -227,7 +246,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     # Render the walker with the reference expert demonstration trajectory
     os.environ["MUJOCO_GL"] = "osmesa"
-    qposes_rollout = [data.qpos for data in rollout]
+    qposes_rollout = [state.pipeline_state.qpos for state in rollout]
 
     def f(x):
         if len(x.shape) != 1:

@@ -161,7 +161,7 @@ class Rodent(PipelineEnv):
         )
 
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
-        pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
+        pos_reward = self._pos_reward_weight * jp.exp(-600 * jp.sum(pos_distance) ** 2)
         quat_reward = self._quat_reward_weight * jp.exp(
             -4
             * jp.sum(
