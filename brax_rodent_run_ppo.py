@@ -161,15 +161,12 @@ def wandb_progress(num_steps, metrics):
 
 # Wrap the env in the brax autoreset and episode wrappers
 # rollout_env = custom_wrappers.AutoResetWrapperTracking(env)
-rollout_env = custom_wrappers.AutoResetWrapperTracking(
-    custom_wrappers.RenderRolloutWrapperTracking(env)
-)
+rollout_env = custom_wrappers.RenderRolloutWrapperTracking(env)
 # define the jit reset/step functions
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
 
 
-# TODO: scan and jit this rollout
 def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     policy_params_key = jax.random.key(0)
     os.makedirs(model_path, exist_ok=True)
@@ -261,27 +258,30 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         env._steps_for_cur_frame,
         axis=0,
     )
-    done_array = np.array([state.done for state in rollout])
-    reset_indices = np.where(done_array == 1.0)[0]
-    if reset_indices.shape[0] == 0:
-        aligned_traj = qposes_ref
-    else:
-        aligned_traj = np.zeros_like(qposes_rollout)
-        # Set the first segment
-        aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
 
-        # Iterate through reset points
-        for i in range(len(reset_indices) - 1):
-            start = reset_indices[i] + 1
-            end = reset_indices[i + 1] + 1
-            length = end - start
-            aligned_traj[start:end] = qposes_ref[:length]
+    # Trying to align them when using the reset wrapper...
+    # Doesn't work bc reset wrapper handles the done under the hood so it's always 0 :(
+    # done_array = np.array([state.done for state in rollout])
+    # reset_indices = np.where(done_array == 1.0)[0]
+    # if reset_indices.shape[0] == 0:
+    #     aligned_traj = qposes_ref
+    # else:
+    #     aligned_traj = np.zeros_like(qposes_rollout)
+    #     # Set the first segment
+    #     aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
 
-        # Set the last segment
-        if reset_indices[-1] < len(done_array) - 1:
-            start = reset_indices[-1] + 1
-            length = len(done_array) - start
-            aligned_traj[start:] = qposes_ref[:length]
+    #     # Iterate through reset points
+    #     for i in range(len(reset_indices) - 1):
+    #         start = reset_indices[i] + 1
+    #         end = reset_indices[i + 1] + 1
+    #         length = end - start
+    #         aligned_traj[start:end] = qposes_ref[:length]
+
+    #     # Set the last segment
+    #     if reset_indices[-1] < len(done_array) - 1:
+    #         start = reset_indices[-1] + 1
+    #         length = len(done_array) - start
+    #         aligned_traj[start:] = qposes_ref[:length]
 
     mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_pair.xml")
 
@@ -302,9 +302,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     # render while stepping using mujoco
     video_path = f"{model_path}/{num_steps}.mp4"
 
-    with imageio.get_writer(
-        video_path, fps=int((1.0 / env.dt))
-    ) as video:
+    with imageio.get_writer(video_path, fps=int((1.0 / env.dt))) as video:
         for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
