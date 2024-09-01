@@ -47,11 +47,11 @@ config = {
     "env_name": "rodent",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 2048 * n_gpus,
+    "num_envs": 4096 * n_gpus,
     "num_timesteps": 500_000_000,
     "eval_every": 5_000_000,
     "episode_length": 150,
-    "batch_size": 1024 * n_gpus,
+    "batch_size": 4096 * n_gpus,
     "learning_rate": 3e-4,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
@@ -181,7 +181,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     state = jit_reset(reset_rng)
 
     rollout = [state]
-    for i in range(int(episode_length)):
+    for i in range(int(250 * rollout_env._steps_for_cur_frame)):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
@@ -303,7 +303,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     video_path = f"{model_path}/{num_steps}.mp4"
 
     with imageio.get_writer(
-        video_path, fps=int((1.0 / env.dt) / env._steps_for_cur_frame)
+        video_path, fps=int((1.0 / env.dt))
     ) as video:
         for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
