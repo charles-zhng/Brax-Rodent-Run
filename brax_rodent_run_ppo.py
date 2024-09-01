@@ -52,7 +52,7 @@ config = {
     "eval_every": 5_000_000,
     "episode_length": 150,
     "batch_size": 4096 * n_gpus,
-    "learning_rate": 3e-4,
+    "learning_rate": 1e-4,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.0015,
@@ -64,8 +64,8 @@ config = {
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 4,
-    "ls_iterations": 4,
+    "iterations": 5,
+    "ls_iterations": 5,
 }
 
 envs.register_environment("rodent", Rodent)

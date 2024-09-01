@@ -190,6 +190,18 @@ class Rodent(PipelineEnv):
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         done = jp.max(jp.array([done, too_far]))
+
+        # Handle nans during sim by resetting env
+        reward = jp.nan_to_num(reward)
+        obs = jp.nan_to_num(obs)
+
+        from jax.flatten_util import ravel_pytree
+
+        flattened_vals, _ = ravel_pytree(data)
+        num_nans = jp.sum(jp.isnan(flattened_vals))
+        nan = jp.where(num_nans > 0, 1.0, 0.0)
+        done = jp.max(jp.array([nan, done]))
+
         state.metrics.update(
             pos_reward=pos_reward,
             quat_reward=quat_reward,
