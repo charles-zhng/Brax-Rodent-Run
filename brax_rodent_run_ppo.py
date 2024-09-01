@@ -48,14 +48,14 @@ config = {
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 4096 * n_gpus,
-    "num_timesteps": 500_000_000,
-    "eval_every": 5_000_000,
-    "episode_length": 150,
+    "num_timesteps": 2_000_000_000,
+    "eval_every": 25_000_000,
+    "episode_length": 200,
     "batch_size": 4096 * n_gpus,
     "learning_rate": 1e-4,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
-    "too_far_dist": 0.0015,
+    "too_far_dist": 0.005,
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 3.0,
     "quat_reward_weight": 1.0,
@@ -64,8 +64,8 @@ config = {
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 5,
-    "ls_iterations": 5,
+    "iterations": 4,
+    "ls_iterations": 4,
 }
 
 envs.register_environment("rodent", Rodent)
@@ -113,7 +113,7 @@ env = envs.get_environment(
 
 # Episode length is equal to (clip length - random init range - traj length) * steps per cur frame
 # Will work on not hardcoding these values later
-episode_length = (250 - 100 - 5) * env._steps_for_cur_frame
+episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
 
 train_fn = functools.partial(
