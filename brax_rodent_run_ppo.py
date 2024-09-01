@@ -160,7 +160,10 @@ def wandb_progress(num_steps, metrics):
 
 
 # Wrap the env in the brax autoreset and episode wrappers
-rollout_env = custom_wrappers.AutoResetWrapperTracking(env)
+# rollout_env = custom_wrappers.AutoResetWrapperTracking(env)
+rollout_env = custom_wrappers.AutoResetWrapperTracking(
+    custom_wrappers.RenderRolloutWrapperTracking(env)
+)
 # define the jit reset/step functions
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
@@ -241,7 +244,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     # Render the walker with the reference expert demonstration trajectory
     os.environ["MUJOCO_GL"] = "osmesa"
-    qposes_rollout = [state.pipeline_state.qpos for state in rollout]
+    qposes_rollout = np.array([state.pipeline_state.qpos for state in rollout])
 
     def f(x):
         if len(x.shape) != 1:
@@ -253,14 +256,17 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         return jp.array([])
 
     ref_traj = jax.tree_util.tree_map(f, reference_clip)
-    qposes_ref = jp.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints])
-
+    qposes_ref = np.repeat(
+        np.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints]),
+        env._steps_for_cur_frame,
+        axis=0,
+    )
     done_array = np.array([state.done for state in rollout])
     reset_indices = np.where(done_array == 1.0)[0]
     if reset_indices.shape[0] == 0:
         aligned_traj = qposes_ref
     else:
-        aligned_traj = np.zeros_like(qposes_ref)
+        aligned_traj = np.zeros_like(qposes_rollout)
         # Set the first segment
         aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
 
@@ -299,7 +305,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     with imageio.get_writer(
         video_path, fps=int((1.0 / env.dt) / env._steps_for_cur_frame)
     ) as video:
-        for qpos1, qpos2 in zip(aligned_traj, qposes_rollout):
+        for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
             renderer.update_scene(mj_data, camera=f"close_profile")
