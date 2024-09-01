@@ -64,8 +64,8 @@ config = {
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 6,
-    "ls_iterations": 6,
+    "iterations": 4,
+    "ls_iterations": 4,
 }
 
 envs.register_environment("rodent", Rodent)
@@ -255,24 +255,27 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     ref_traj = jax.tree_util.tree_map(f, reference_clip)
     qposes_ref = jp.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints])
 
-    done_array = [state.done for state in rollout]
-    reset_indices = np.where(done_array == 1)[0]
-    aligned_traj = np.zeros_like(qposes_ref)
-    # Set the first segment
-    aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
+    done_array = np.array([state.done for state in rollout])
+    reset_indices = np.where(done_array == 1.0)[0]
+    if reset_indices.shape[0] == 0:
+        aligned_traj = qposes_ref
+    else:
+        aligned_traj = np.zeros_like(qposes_ref)
+        # Set the first segment
+        aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
 
-    # Iterate through reset points
-    for i in range(len(reset_indices) - 1):
-        start = reset_indices[i] + 1
-        end = reset_indices[i + 1] + 1
-        length = end - start
-        aligned_traj[start:end] = qposes_ref[:length]
+        # Iterate through reset points
+        for i in range(len(reset_indices) - 1):
+            start = reset_indices[i] + 1
+            end = reset_indices[i + 1] + 1
+            length = end - start
+            aligned_traj[start:end] = qposes_ref[:length]
 
-    # Set the last segment
-    if reset_indices[-1] < len(done_array) - 1:
-        start = reset_indices[-1] + 1
-        length = len(done_array) - start
-        aligned_traj[start:] = qposes_ref[:length]
+        # Set the last segment
+        if reset_indices[-1] < len(done_array) - 1:
+            start = reset_indices[-1] + 1
+            length = len(done_array) - start
+            aligned_traj[start:] = qposes_ref[:length]
 
     mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_pair.xml")
 
