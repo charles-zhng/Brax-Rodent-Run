@@ -97,6 +97,7 @@ env = envs.get_environment(
     env_name,
     track_pos=reference_clip.position,
     track_quat=reference_clip.quaternion,
+    track_joint=reference_clip.joints,
     torque_actuators=config["torque_actuators"],
     terminate_when_unhealthy=config["terminate_when_unhealthy"],
     solver=config["solver"],

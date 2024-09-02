@@ -16,6 +16,41 @@ import os
 
 _XML_PATH = "./models/rodent_new.xml"
 _MOCAP_HZ = 50
+_JOINT_NAMES = [
+    "vertebra_1_extend",
+    "hip_L_supinate",
+    "hip_L_abduct",
+    "hip_L_extend",
+    "knee_L",
+    "ankle_L",
+    "toe_L",
+    "hip_R_supinate",
+    "hip_R_abduct",
+    "hip_R_extend",
+    "knee_R",
+    "ankle_R",
+    "toe_R",
+    "vertebra_C11_extend",
+    "vertebra_cervical_1_bend",
+    "vertebra_axis_twist",
+    "atlas",
+    "mandible",
+    "scapula_L_supinate",
+    "scapula_L_abduct",
+    "scapula_L_extend",
+    "shoulder_L",
+    "shoulder_sup_L",
+    "elbow_L",
+    "wrist_L",
+    "scapula_R_supinate",
+    "scapula_R_abduct",
+    "scapula_R_extend",
+    "shoulder_R",
+    "shoulder_sup_R",
+    "elbow_R",
+    "wrist_R",
+    "finger_R",
+]
 
 
 class Rodent(PipelineEnv):
@@ -24,13 +59,14 @@ class Rodent(PipelineEnv):
         self,
         track_pos: jp.ndarray,
         track_quat: jp.ndarray,
+        track_joint: jp.ndarray,
         torque_actuators: bool = False,
         ref_len: int = 5,
-        forward_reward_weight=10,
         too_far_dist=0.1,
         ctrl_cost_weight=0.01,
         pos_reward_weight=10.0,
         quat_reward_weight=1.0,
+        joint_reward_weight=1.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.03, 0.5),
@@ -90,13 +126,22 @@ class Rodent(PipelineEnv):
         self._torso_idx = mujoco.mj_name2id(
             mj_model, mujoco.mju_str2Type("body"), "torso"
         )
+
+        self._joint_idxs = jp.array(
+            [
+                mujoco.mj_name2id(mj_model, mujoco.mju_str2Type("joint"), joint)
+                for joint in _JOINT_NAMES
+            ]
+        )
+
         self._too_far_dist = too_far_dist
         self._track_pos = track_pos
         self._track_quat = track_quat
+        self._track_joint = track_joint
         self._ref_len = ref_len
         self._pos_reward_weight = pos_reward_weight
         self._quat_reward_weight = quat_reward_weight
-        self._forward_reward_weight = forward_reward_weight
+        self._joint_reward_weight = joint_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
         self._healthy_reward = healthy_reward
         self._terminate_when_unhealthy = terminate_when_unhealthy
@@ -138,6 +183,7 @@ class Rodent(PipelineEnv):
         metrics = {
             "pos_reward": zero,
             "quat_reward": zero,
+            "joint_reward": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
             "too_far": zero,
@@ -171,6 +217,10 @@ class Rodent(PipelineEnv):
                 ** 2
             )
         )
+        joint_distance = data.qpos[7:] - self._track_joint[state.info["cur_frame"]]
+        joint_reward = self._joint_reward_weight * jp.exp(
+            -1 * jp.sum(joint_distance) ** 2
+        )
 
         min_z, max_z = self._healthy_z_range
         is_healthy = jp.where(data.xpos[self._torso_idx][2] < min_z, 0.0, 1.0)
@@ -186,7 +236,7 @@ class Rodent(PipelineEnv):
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
-        reward = pos_reward + quat_reward + healthy_reward - ctrl_cost
+        reward = joint_reward + pos_reward + quat_reward + healthy_reward - ctrl_cost
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
         done = jp.max(jp.array([done, too_far]))
@@ -205,6 +255,7 @@ class Rodent(PipelineEnv):
         state.metrics.update(
             pos_reward=pos_reward,
             quat_reward=quat_reward,
+            joint_reward=joint_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
             too_far=too_far,
@@ -242,7 +293,15 @@ class Rodent(PipelineEnv):
             ),
         ).flatten()
 
-        # external_contact_forces are excluded
+        joint_dist = (
+            jax.lax.dynamic_slice(
+                self._track_joint,
+                (cur_frame + 1, 0),
+                (self._ref_len, self._track_pos.shape[1]),
+            )
+            - data.qpos[7:][:, self._joint_idxs].flatten()
+        )
+
         return jp.concatenate(
             [
                 data.qpos,
@@ -250,8 +309,9 @@ class Rodent(PipelineEnv):
                 # data.cinert[1:].ravel(),
                 # data.cvel[1:].ravel(),
                 # data.qfrc_actuator,
-                # track_pos_local,
+                track_pos_local,
                 quat_dist,
+                joint_dist,
             ]
         )
 
