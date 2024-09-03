@@ -59,6 +59,7 @@ config = {
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 3.0,
     "quat_reward_weight": 1.0,
+    "joint_reward_weight": 25.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
@@ -107,6 +108,7 @@ env = envs.get_environment(
     ctrl_cost_weight=config["ctrl_cost_weight"],
     pos_reward_weight=config["pos_reward_weight"],
     quat_reward_weight=config["quat_reward_weight"],
+    joint_reward_weight=config["joint_reward_weight"],
     healthy_reward=config["healthy_reward"],
     healthy_z_range=config["healthy_z_range"],
     physics_steps_per_control_step=config["physics_steps_per_control_step"],
@@ -203,6 +205,23 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         commit=False,
     )
 
+    joint_rewards = [state.metrics["joint_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(joint_rewards)), joint_rewards)],
+        columns=["frame", "joint_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_joint_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "joint_rewards",
+                title="joint_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    
     summed_pos_distances = [state.info["summed_pos_distance"] for state in rollout]
     table = wandb.Table(
         data=[

@@ -297,10 +297,10 @@ class Rodent(PipelineEnv):
             jax.lax.dynamic_slice(
                 self._track_joint,
                 (cur_frame + 1, 0),
-                (self._ref_len, self._track_pos.shape[1]),
+                (self._ref_len, self._track_joint.shape[1]),
             )
-            - data.qpos[7:][:, self._joint_idxs].flatten()
-        )
+            - data.qpos[7:]
+            )[:, self._joint_idxs].flatten()
 
         return jp.concatenate(
             [

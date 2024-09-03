@@ -112,6 +112,7 @@ class RenderRolloutWrapperTracking(Wrapper):
         metrics = {
             "pos_reward": zero,
             "quat_reward": zero,
+            "joint_reward": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
             "too_far": zero,
