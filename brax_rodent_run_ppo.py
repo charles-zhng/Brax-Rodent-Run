@@ -48,7 +48,7 @@ config = {
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 4096 * n_gpus,
-    "num_timesteps": 2_000_000_000,
+    "num_timesteps": 5_000_000_000,
     "eval_every": 25_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_gpus,
@@ -56,10 +56,11 @@ config = {
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.005,
+    "bad_pose_dist": 60.0,
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 3.0,
-    "quat_reward_weight": 1.0,
-    "joint_reward_weight": 25.0,
+    "quat_reward_weight": 1.25,
+    "joint_reward_weight": 5.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
@@ -71,15 +72,16 @@ config = {
 
 envs.register_environment("rodent", Rodent)
 
-reference_path = f"clips/84.p"
+clip_id = 84 #84 is the walking in half circle one
+reference_path = f"clips/{clip_id}.p"
 
 if not os.path.exists(reference_path):
     os.makedirs(os.path.dirname(reference_path), exist_ok=True)
 
     # Process rodent clip and save as pickle
     reference_clip = process_clip_to_train(
-        stac_path="../stac-mjx/transform_snips_new.p",
-        start_step=84 * 250,
+        stac_path="../OLD-stac-mjx/transform_snips_new.p",
+        start_step=clip_id * 250,
         clip_length=250,
         mjcf_path="./models/rodent_new.xml",
     )
@@ -105,6 +107,7 @@ env = envs.get_environment(
     iterations=config["iterations"],
     ls_iterations=config["ls_iterations"],
     too_far_dist=config["too_far_dist"],
+    bad_pose_dist=config["bad_pose_dist"],
     ctrl_cost_weight=config["ctrl_cost_weight"],
     pos_reward_weight=config["pos_reward_weight"],
     quat_reward_weight=config["quat_reward_weight"],
@@ -130,7 +133,7 @@ train_fn = functools.partial(
     unroll_length=16,
     num_minibatches=32,
     num_updates_per_batch=8,
-    discounting=0.99,
+    discounting=0.9,
     learning_rate=config["learning_rate"],
     entropy_cost=1e-3,
     num_envs=config["num_envs"],
@@ -138,8 +141,8 @@ train_fn = functools.partial(
     seed=0,
     network_factory=functools.partial(
         ppo_networks.make_ppo_networks,
-        policy_hidden_layer_sizes=(256, 256),
-        value_hidden_layer_sizes=(256, 256),
+        policy_hidden_layer_sizes=(512, 256),
+        value_hidden_layer_sizes=(512, 256),
     ),
 )
 
@@ -149,7 +152,7 @@ import uuid
 run_id = uuid.uuid4()
 model_path = f"./model_checkpoints/{run_id}"
 
-run = wandb.init(project="vnl_debug", config=config, notes="quat + alive")
+run = wandb.init(project="vnl_debug", config=config, notes=f"clip_id: {clip_id}")
 
 
 wandb.run.name = (
@@ -237,6 +240,26 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
                 "frame",
                 "summed_pos_distances",
                 title="summed_pos_distances for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    
+    joint_distances = [state.info["joint_distance"] for state in rollout]
+    table = wandb.Table(
+        data=[
+            [x, y]
+            for (x, y) in zip(range(len(joint_distances)), joint_distances)
+        ],
+        columns=["frame", "joint_distances"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_joint_distances": wandb.plot.line(
+                table,
+                "frame",
+                "joint_distances",
+                title="joint_distances for each rollout frame",
             )
         },
         commit=False,

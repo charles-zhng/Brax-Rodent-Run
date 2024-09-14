@@ -89,6 +89,7 @@ class RenderRolloutWrapperTracking(Wrapper):
             "cur_frame": 0,
             "steps_taken_cur_frame": 0,
             "summed_pos_distance": 0.0,
+            "joint_distance": 0.0,
         }
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
@@ -116,6 +117,7 @@ class RenderRolloutWrapperTracking(Wrapper):
             "reward_quadctrl": zero,
             "reward_alive": zero,
             "too_far": zero,
+            "bad_pose": zero,
             "fall": zero,
         }
         return State(data, obs, reward, done, metrics, info)

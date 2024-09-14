@@ -63,10 +63,11 @@ class Rodent(PipelineEnv):
         torque_actuators: bool = False,
         ref_len: int = 5,
         too_far_dist=0.1,
+        bad_pose_dist=jp.inf,
         ctrl_cost_weight=0.01,
         pos_reward_weight=10.0,
         quat_reward_weight=1.0,
-        joint_reward_weight=1.0,
+        joint_reward_weight=10.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.03, 0.5),
@@ -133,7 +134,8 @@ class Rodent(PipelineEnv):
                 for joint in _JOINT_NAMES
             ]
         )
-
+        
+        self._bad_pose_dist = bad_pose_dist
         self._too_far_dist = too_far_dist
         self._track_pos = track_pos
         self._track_quat = track_quat
@@ -158,6 +160,7 @@ class Rodent(PipelineEnv):
             "cur_frame": start_frame,
             "steps_taken_cur_frame": 0,
             "summed_pos_distance": 0.0,
+            "joint_distance": 0.0,
         }
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
@@ -187,6 +190,7 @@ class Rodent(PipelineEnv):
             "reward_quadctrl": zero,
             "reward_alive": zero,
             "too_far": zero,
+            "bad_pose": zero,
             "fall": zero,
         }
         return State(data, obs, reward, done, metrics, info)
@@ -208,6 +212,7 @@ class Rodent(PipelineEnv):
 
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
         pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
+        
         quat_reward = self._quat_reward_weight * jp.exp(
             -4
             * jp.sum(
@@ -217,11 +222,11 @@ class Rodent(PipelineEnv):
                 ** 2
             )
         )
-        joint_distance = data.qpos[7:] - self._track_joint[state.info["cur_frame"]]
-        joint_reward = self._joint_reward_weight * jp.exp(
-            -1 * jp.sum(joint_distance) ** 2
-        )
-
+        
+        joint_distance = jp.sum(data.qpos[7:] - self._track_joint[state.info["cur_frame"]]) ** 2
+        joint_reward = self._joint_reward_weight * jp.exp(-0.5 * joint_distance)
+        info["joint_distance"] = joint_distance
+        
         min_z, max_z = self._healthy_z_range
         is_healthy = jp.where(data.xpos[self._torso_idx][2] < min_z, 0.0, 1.0)
         is_healthy = jp.where(data.xpos[self._torso_idx][2] > max_z, 0.0, is_healthy)
@@ -233,13 +238,14 @@ class Rodent(PipelineEnv):
         summed_pos_distance = jp.sum((pos_distance * jp.array([1.0, 1.0, 0.2])) ** 2)
         too_far = jp.where(summed_pos_distance > self._too_far_dist, 1.0, 0.0)
         info["summed_pos_distance"] = summed_pos_distance
+        bad_pose = jp.where(joint_distance > self._bad_pose_dist, 1.0, 0.0)
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
         reward = joint_reward + pos_reward + quat_reward + healthy_reward - ctrl_cost
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
-        done = jp.max(jp.array([done, too_far]))
+        done = jp.max(jp.array([done, too_far, bad_pose]))
 
         # Handle nans during sim by resetting env
         reward = jp.nan_to_num(reward)
@@ -259,6 +265,7 @@ class Rodent(PipelineEnv):
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
             too_far=too_far,
+            bad_pose=bad_pose,
             fall=1 - is_healthy,
         )
 
