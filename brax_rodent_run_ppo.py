@@ -61,6 +61,7 @@ config = {
     "pos_reward_weight": 3.0,
     "quat_reward_weight": 1.25,
     "joint_reward_weight": 5.0,
+    "angvel_reward_weight": 1.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
@@ -72,7 +73,7 @@ config = {
 
 envs.register_environment("rodent", Rodent)
 
-clip_id = 84 #84 is the walking in half circle one
+clip_id = 84  # 84 is the walking in half circle one
 reference_path = f"clips/{clip_id}.p"
 
 if not os.path.exists(reference_path):
@@ -101,6 +102,8 @@ env = envs.get_environment(
     track_pos=reference_clip.position,
     track_quat=reference_clip.quaternion,
     track_joint=reference_clip.joints,
+    track_angvel=reference_clip.angular_velocity,
+    track_bodypos=reference_clip.body_positions,
     torque_actuators=config["torque_actuators"],
     terminate_when_unhealthy=config["terminate_when_unhealthy"],
     solver=config["solver"],
@@ -112,6 +115,7 @@ env = envs.get_environment(
     pos_reward_weight=config["pos_reward_weight"],
     quat_reward_weight=config["quat_reward_weight"],
     joint_reward_weight=config["joint_reward_weight"],
+    angvel_reward_weight=config["angvel_reward_weight"],
     healthy_reward=config["healthy_reward"],
     healthy_z_range=config["healthy_z_range"],
     physics_steps_per_control_step=config["physics_steps_per_control_step"],
@@ -224,7 +228,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
+
     summed_pos_distances = [state.info["summed_pos_distance"] for state in rollout]
     table = wandb.Table(
         data=[
@@ -244,13 +248,10 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
+
     joint_distances = [state.info["joint_distance"] for state in rollout]
     table = wandb.Table(
-        data=[
-            [x, y]
-            for (x, y) in zip(range(len(joint_distances)), joint_distances)
-        ],
+        data=[[x, y] for (x, y) in zip(range(len(joint_distances)), joint_distances)],
         columns=["frame", "joint_distances"],
     )
     wandb.log(
