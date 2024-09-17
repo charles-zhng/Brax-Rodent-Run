@@ -271,11 +271,11 @@ class Rodent(PipelineEnv):
         )
 
         bodypos_reward = self._bodypos_reward_weight * jp.exp(
-            -4.0
+            -8.0
             * jp.sum(
-                data.xpos[self._body_idxs]
-                - self._track_bodypos[info["cur_frame"]][self._body_idxs]
-            ).flatten()
+                (data.xpos[self._body_idxs]
+                - self._track_bodypos[info["cur_frame"]][self._body_idxs]).flatten()
+            )
             ** 2
         )
 

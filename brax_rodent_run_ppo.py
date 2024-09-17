@@ -213,6 +213,24 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
+    
+    bodypos_rewards = [state.metrics["bodypos_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(bodypos_rewards)), bodypos_rewards)],
+        columns=["frame", "bodypos_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_bodypos_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "bodypos_rewards",
+                title="bodypos_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    
 
     joint_rewards = [state.metrics["joint_reward"] for state in rollout]
     table = wandb.Table(
