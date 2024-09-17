@@ -63,6 +63,7 @@ config = {
     "joint_reward_weight": 3.0,
     "angvel_reward_weight": 2.0,
     "bodypos_reward_weight": 2.0,
+    "endeff_reward_weight": 2.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
@@ -118,6 +119,7 @@ env = envs.get_environment(
     joint_reward_weight=config["joint_reward_weight"],
     angvel_reward_weight=config["angvel_reward_weight"],
     bodypos_reward_weight=config["bodypos_reward_weight"],
+    endeff_reward_weight=config["endeff_reward_weight"],
     healthy_reward=config["healthy_reward"],
     healthy_z_range=config["healthy_z_range"],
     physics_steps_per_control_step=config["physics_steps_per_control_step"],
@@ -213,7 +215,41 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
+
+    endeff_rewards = [state.metrics["endeff_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(endeff_rewards)), endeff_rewards)],
+        columns=["frame", "endeff_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_endeff_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "endeff_rewards",
+                title="endeff_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+
+    angvel_rewards = [state.metrics["angvel_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(angvel_rewards)), angvel_rewards)],
+        columns=["frame", "angvel_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_angvel_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "angvel_rewards",
+                title="angvel_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+
     bodypos_rewards = [state.metrics["bodypos_reward"] for state in rollout]
     table = wandb.Table(
         data=[[x, y] for (x, y) in zip(range(len(bodypos_rewards)), bodypos_rewards)],
@@ -230,7 +266,6 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
 
     joint_rewards = [state.metrics["joint_reward"] for state in rollout]
     table = wandb.Table(

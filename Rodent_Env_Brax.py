@@ -72,6 +72,14 @@ _BODY_NAMES = [
     "finger_R",
 ]
 
+_END_EFF_NAMES = [
+    "foot_L",
+    "foot_R",
+    "hand_L",
+    "hand_R",
+    "skull",
+]
+
 
 class Rodent(PipelineEnv):
 
@@ -92,6 +100,7 @@ class Rodent(PipelineEnv):
         joint_reward_weight=10.0,
         angvel_reward_weight=1.0,
         bodypos_reward_weight=1.0,
+        endeff_reward_weight=1.0,
         healthy_reward=0.25,
         terminate_when_unhealthy=True,
         healthy_z_range=(0.03, 0.5),
@@ -166,6 +175,13 @@ class Rodent(PipelineEnv):
             ]
         )
 
+        self._endeff_idxs = jp.array(
+            [
+                mujoco.mj_name2id(mj_model, mujoco.mju_str2Type("body"), body)
+                for body in _END_EFF_NAMES
+            ]
+        )
+
         self._bad_pose_dist = bad_pose_dist
         self._too_far_dist = too_far_dist
         self._track_pos = track_pos
@@ -179,6 +195,7 @@ class Rodent(PipelineEnv):
         self._joint_reward_weight = joint_reward_weight
         self._angvel_reward_weight = angvel_reward_weight
         self._bodypos_reward_weight = bodypos_reward_weight
+        self._endeff_reward_weight = endeff_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
         self._healthy_reward = healthy_reward
         self._terminate_when_unhealthy = terminate_when_unhealthy
@@ -224,6 +241,7 @@ class Rodent(PipelineEnv):
             "joint_reward": zero,
             "angvel_reward": zero,
             "bodypos_reward": zero,
+            "endeff_reward": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
             "too_far": zero,
@@ -273,8 +291,21 @@ class Rodent(PipelineEnv):
         bodypos_reward = self._bodypos_reward_weight * jp.exp(
             -8.0
             * jp.sum(
-                (data.xpos[self._body_idxs]
-                - self._track_bodypos[info["cur_frame"]][self._body_idxs]).flatten()
+                (
+                    data.xpos[self._body_idxs]
+                    - self._track_bodypos[info["cur_frame"]][self._body_idxs]
+                ).flatten()
+            )
+            ** 2
+        )
+
+        endeff_reward = self._endeff_reward_weight * jp.exp(
+            -1.0
+            * jp.sum(
+                (
+                    data.xpos[self._endeff_idxs]
+                    - self._track_bodypos[info["cur_frame"]][self._endeff_idxs]
+                ).flatten()
             )
             ** 2
         )
@@ -300,6 +331,7 @@ class Rodent(PipelineEnv):
             + quat_reward
             + angvel_reward
             + bodypos_reward
+            + endeff_reward
             + healthy_reward
             - ctrl_cost
         )
@@ -324,6 +356,7 @@ class Rodent(PipelineEnv):
             joint_reward=joint_reward,
             angvel_reward=angvel_reward,
             bodypos_reward=bodypos_reward,
+            endeff_reward=endeff_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
             too_far=too_far,
