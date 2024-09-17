@@ -251,10 +251,10 @@ class Rodent(PipelineEnv):
         pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
 
         quat_reward = self._quat_reward_weight * jp.exp(
-            -4
+            -4.0
             * jp.sum(
                 self._bounded_quat_dist(
-                    data.qvel[3:7], self._track_quat[info["cur_frame"]]
+                    data.qpos[3:7], self._track_quat[info["cur_frame"]]
                 )
                 ** 2
             )
@@ -267,7 +267,16 @@ class Rodent(PipelineEnv):
         info["joint_distance"] = joint_distance
 
         angvel_reward = self._angvel_reward_weight * jp.exp(
-            -4 * jp.sum(data.qvel[3:6] - self._track_angvel[info["cur_frame"]]) ** 2
+            -0.5 * jp.sum(data.qvel[3:6] - self._track_angvel[info["cur_frame"]]) ** 2
+        )
+
+        bodypos_reward = self._bodypos_reward_weight * jp.exp(
+            -4.0
+            * jp.sum(
+                data.xpos[self._body_idxs]
+                - self._track_bodypos[info["cur_frame"]][self._body_idxs]
+            ).flatten()
+            ** 2
         )
 
         min_z, max_z = self._healthy_z_range
@@ -290,6 +299,7 @@ class Rodent(PipelineEnv):
             + pos_reward
             + quat_reward
             + angvel_reward
+            + bodypos_reward
             + healthy_reward
             - ctrl_cost
         )
@@ -313,7 +323,7 @@ class Rodent(PipelineEnv):
             quat_reward=quat_reward,
             joint_reward=joint_reward,
             angvel_reward=angvel_reward,
-            # bodypos_reward=bodypos_reward,
+            bodypos_reward=bodypos_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
             too_far=too_far,
@@ -338,10 +348,6 @@ class Rodent(PipelineEnv):
             - data.qpos[:3],
             data.qpos[3:7],
         ).flatten()
-        # get relative tracking position in local frame
-        # track_pos_local = self.emil_to_local(
-        #     data,
-        # ).flatten()
 
         quat_dist = jax.vmap(
             lambda a, b: brax_math.relative_quat(a, b), in_axes=(None, 0)
@@ -361,6 +367,26 @@ class Rodent(PipelineEnv):
             - data.qpos[7:]
         )[:, self._joint_idxs].flatten()
 
+        # TODO test if this works
+        body_pos_dist_local = jax.vmap(
+            lambda a, b: jax.vmap(brax_math.rotate, in_axes=(0, None))(a, b),
+            in_axes=(0, None),
+        )(
+            (
+                jax.lax.dynamic_slice(
+                    self._track_bodypos,
+                    (cur_frame + 1, 0, 0),
+                    (
+                        self._ref_len,
+                        self._track_bodypos.shape[1],
+                        self._track_bodypos.shape[2],
+                    ),
+                )
+                - data.xpos
+            )[:, self._body_idxs],
+            data.qpos[3:7],
+        ).flatten()
+
         return jp.concatenate(
             [
                 data.qpos,
@@ -371,6 +397,7 @@ class Rodent(PipelineEnv):
                 track_pos_local,
                 quat_dist,
                 joint_dist,
+                body_pos_dist_local,
             ]
         )
 
