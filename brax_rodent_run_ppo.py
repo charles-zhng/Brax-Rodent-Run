@@ -24,7 +24,7 @@ import os
 from absl import app
 from absl import flags
 
-os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.90"
+os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.95"
 
 FLAGS = flags.FLAGS
 
@@ -52,7 +52,8 @@ config = {
     "eval_every": 25_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_gpus,
-    "learning_rate": 1e-4,
+    "learning_rate": 8e-5,
+    "clipping_epsilon": 0.2,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.005,
@@ -138,8 +139,9 @@ train_fn = functools.partial(
     episode_length=episode_length,
     normalize_observations=True,
     action_repeat=1,
+    clipping_epsilon=config["clipping_epsilon"],
     unroll_length=16,
-    num_minibatches=32,
+    num_minibatches=48,
     num_updates_per_batch=8,
     discounting=0.9,
     learning_rate=config["learning_rate"],

@@ -289,7 +289,7 @@ class Rodent(PipelineEnv):
         )
 
         bodypos_reward = self._bodypos_reward_weight * jp.exp(
-            -8.0
+            -6.0
             * jp.sum(
                 (
                     data.xpos[self._body_idxs]
@@ -300,7 +300,7 @@ class Rodent(PipelineEnv):
         )
 
         endeff_reward = self._endeff_reward_weight * jp.exp(
-            -1.0
+            -0.75
             * jp.sum(
                 (
                     data.xpos[self._endeff_idxs]
