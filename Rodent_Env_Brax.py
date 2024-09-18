@@ -94,6 +94,7 @@ class Rodent(PipelineEnv):
         ref_len: int = 5,
         too_far_dist=0.1,
         bad_pose_dist=jp.inf,
+        bad_quat_dist=jp.inf,
         ctrl_cost_weight=0.01,
         pos_reward_weight=10.0,
         quat_reward_weight=1.0,
@@ -184,6 +185,7 @@ class Rodent(PipelineEnv):
 
         self._bad_pose_dist = bad_pose_dist
         self._too_far_dist = too_far_dist
+        self._bad_quat_dist = bad_quat_dist
         self._track_pos = track_pos
         self._track_quat = track_quat
         self._track_joint = track_joint
@@ -212,6 +214,7 @@ class Rodent(PipelineEnv):
             "cur_frame": start_frame,
             "steps_taken_cur_frame": 0,
             "summed_pos_distance": 0.0,
+            "quat_distance": 0.0,
             "joint_distance": 0.0,
         }
 
@@ -256,6 +259,7 @@ class Rodent(PipelineEnv):
         data = self.pipeline_step(data0, action)
 
         # Logic for moving to next frame to track to maintain timesteps alignment
+        # TODO: Update this to just refer to model.timestep
         info = state.info.copy()
         info["steps_taken_cur_frame"] += 1
         info["cur_frame"] += jp.where(
@@ -268,15 +272,11 @@ class Rodent(PipelineEnv):
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
         pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
 
-        quat_reward = self._quat_reward_weight * jp.exp(
-            -4.0
-            * jp.sum(
-                self._bounded_quat_dist(
-                    data.qpos[3:7], self._track_quat[info["cur_frame"]]
-                )
-                ** 2
-            )
+        quat_distance = jp.sum(
+            self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]])
+            ** 2
         )
+        quat_reward = self._quat_reward_weight * jp.exp(-4.0 * quat_distance)
 
         joint_distance = (
             jp.sum(data.qpos[7:] - self._track_joint[state.info["cur_frame"]]) ** 2
@@ -321,7 +321,9 @@ class Rodent(PipelineEnv):
         summed_pos_distance = jp.sum((pos_distance * jp.array([1.0, 1.0, 0.2])) ** 2)
         too_far = jp.where(summed_pos_distance > self._too_far_dist, 1.0, 0.0)
         info["summed_pos_distance"] = summed_pos_distance
+        info["quat_distance"] = quat_distance
         bad_pose = jp.where(joint_distance > self._bad_pose_dist, 1.0, 0.0)
+        bad_quat = jp.where(quat_distance > self._bad_quat_dist, 1.0, 0.0)
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         obs = self._get_obs(data, info["cur_frame"])
@@ -337,7 +339,7 @@ class Rodent(PipelineEnv):
         )
         # reward = healthy_reward - ctrl_cost
         done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
-        done = jp.max(jp.array([done, too_far, bad_pose]))
+        done = jp.max(jp.array([done, too_far, bad_pose, bad_quat]))
 
         # Handle nans during sim by resetting env
         reward = jp.nan_to_num(reward)

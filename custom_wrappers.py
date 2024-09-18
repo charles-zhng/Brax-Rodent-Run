@@ -89,6 +89,7 @@ class RenderRolloutWrapperTracking(Wrapper):
             "cur_frame": 0,
             "steps_taken_cur_frame": 0,
             "summed_pos_distance": 0.0,
+            "quat_distance": 0.0,
             "joint_distance": 0.0,
         }
 
