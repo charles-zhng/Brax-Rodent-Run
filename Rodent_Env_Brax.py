@@ -249,6 +249,7 @@ class Rodent(PipelineEnv):
             "reward_alive": zero,
             "too_far": zero,
             "bad_pose": zero,
+            "bad_quat": zero,
             "fall": zero,
         }
         return State(data, obs, reward, done, metrics, info)
@@ -363,6 +364,7 @@ class Rodent(PipelineEnv):
             reward_alive=healthy_reward,
             too_far=too_far,
             bad_pose=bad_pose,
+            bad_quat=bad_quat,
             fall=1 - is_healthy,
         )
 
