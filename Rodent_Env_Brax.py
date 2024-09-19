@@ -127,8 +127,6 @@ class Rodent(PipelineEnv):
             0.9,
         )
         mj_model = mjcf_dm.Physics.from_mjcf_model(root).model.ptr
-        os.environ["MUJOCO_GL"] = "osmesa"
-        mj_model = mujoco.MjModel.from_xml_path(_XML_PATH)
         mj_model.opt.solver = {
             "cg": mujoco.mjtSolver.mjSOL_CG,
             "newton": mujoco.mjtSolver.mjSOL_NEWTON,
@@ -493,3 +491,5 @@ class Rodent(PipelineEnv):
         # Divide by 2 and add an axis to ensure consistency with expected return
         # shape and magnitude.
         return 0.5 * jp.arccos(dist)[..., np.newaxis]
+    
+class RodentMultiClip(PipelineEnv):
