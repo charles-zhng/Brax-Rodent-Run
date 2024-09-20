@@ -57,8 +57,8 @@ config = {
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.01,
-    "bad_pose_dist": jp.inf, # 60
-    "bad_quat_dist": jp.inf, #1.25
+    "bad_pose_dist": jp.inf,  # 60
+    "bad_quat_dist": jp.inf,  # 1.25
     "ctrl_cost_weight": 0.01,
     "pos_reward_weight": 1.0,
     "quat_reward_weight": 1.0,
@@ -386,7 +386,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     #         length = len(done_array) - start
     #         aligned_traj[start:] = qposes_ref[:length]
 
-    mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_pair.xml")
+    mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_ghostpair_scale080.xml")
 
     mj_model.opt.solver = {
         "cg": mujoco.mjtSolver.mjSOL_CG,
