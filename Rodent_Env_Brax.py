@@ -269,7 +269,7 @@ class Rodent(PipelineEnv):
         )
 
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
-        pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance) ** 2)
+        pos_reward = self._pos_reward_weight * jp.exp(-200 * jp.sum(pos_distance) ** 2)
 
         quat_distance = jp.sum(
             self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]])
@@ -280,7 +280,7 @@ class Rodent(PipelineEnv):
         joint_distance = (
             jp.sum(data.qpos[7:] - self._track_joint[state.info["cur_frame"]]) ** 2
         )
-        joint_reward = self._joint_reward_weight * jp.exp(-0.5 * joint_distance)
+        joint_reward = self._joint_reward_weight * jp.exp(-6.0 * joint_distance)
         info["joint_distance"] = joint_distance
 
         angvel_reward = self._angvel_reward_weight * jp.exp(
@@ -288,7 +288,7 @@ class Rodent(PipelineEnv):
         )
 
         bodypos_reward = self._bodypos_reward_weight * jp.exp(
-            -6.0
+            -8.0
             * jp.sum(
                 (
                     data.xpos[self._body_idxs]
@@ -299,7 +299,7 @@ class Rodent(PipelineEnv):
         )
 
         endeff_reward = self._endeff_reward_weight * jp.exp(
-            -0.75
+            -400
             * jp.sum(
                 (
                     data.xpos[self._endeff_idxs]
@@ -492,4 +492,3 @@ class Rodent(PipelineEnv):
         # shape and magnitude.
         return 0.5 * jp.arccos(dist)[..., np.newaxis]
     
-class RodentMultiClip(PipelineEnv):

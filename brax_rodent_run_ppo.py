@@ -5,6 +5,8 @@ import wandb
 import imageio
 import mujoco
 from brax import envs
+from dm_control import mjcf as mjcf_dm
+from dm_control.locomotion.walkers import rescale
 
 # from brax.training.agents.ppo import train as ppo
 import custom_ppo as ppo
@@ -48,31 +50,33 @@ config = {
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 4096 * n_gpus,
-    "num_timesteps": 5_000_000_000,
-    "eval_every": 25_000_000,
+    "num_timesteps": 500_000_000,
+    "eval_every": 2_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_gpus,
-    "learning_rate": 3e-4,
+    "num_minibatches": 4 * n_gpus,
+    "num_updates_per_batch": 5,
+    "learning_rate": 1e-4,
     "clipping_epsilon": 0.2,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.01,
-    "bad_pose_dist": jp.inf,  # 60
-    "bad_quat_dist": jp.inf,  # 1.25
+    "bad_pose_dist": 75,
+    "bad_quat_dist": 1.5,
     "ctrl_cost_weight": 0.01,
-    "pos_reward_weight": 1.0,
-    "quat_reward_weight": 1.0,
-    "joint_reward_weight": 1.0,
+    "pos_reward_weight": 0.25,
+    "quat_reward_weight": 0.25,
+    "joint_reward_weight": 7.0,
     "angvel_reward_weight": 0.0,
     "bodypos_reward_weight": 0.5,
-    "endeff_reward_weight": 1.0,
+    "endeff_reward_weight": 2.0,
     "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
     "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 4,
-    "ls_iterations": 4,
+    "iterations": 6,
+    "ls_iterations": 6,
 }
 
 envs.register_environment("rodent", Rodent)
@@ -142,19 +146,19 @@ train_fn = functools.partial(
     normalize_observations=True,
     action_repeat=1,
     clipping_epsilon=config["clipping_epsilon"],
-    unroll_length=16,
-    num_minibatches=48,
-    num_updates_per_batch=8,
-    discounting=0.9,
+    unroll_length=20,
+    num_minibatches=config["num_minibatches"],
+    num_updates_per_batch=config["num_updates_per_batch"],
+    discounting=0.95,
     learning_rate=config["learning_rate"],
-    entropy_cost=1e-3,
+    entropy_cost=1e-2,
     num_envs=config["num_envs"],
     batch_size=config["batch_size"],
     seed=0,
     network_factory=functools.partial(
         ppo_networks.make_ppo_networks,
-        policy_hidden_layer_sizes=(512, 256),
-        value_hidden_layer_sizes=(512, 256),
+        policy_hidden_layer_sizes=(256, 256, 256),
+        value_hidden_layer_sizes=(256, 256, 256),
     ),
 )
 
@@ -237,6 +241,23 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         commit=False,
     )
 
+    quat_rewards = [state.metrics["quat_reward"] for state in rollout]
+    table = wandb.Table(
+        data=[[x, y] for (x, y) in zip(range(len(quat_rewards)), quat_rewards)],
+        columns=["frame", "quat_rewards"],
+    )
+    wandb.log(
+        {
+            "eval/rollout_quat_rewards": wandb.plot.line(
+                table,
+                "frame",
+                "quat_rewards",
+                title="quat_rewards for each rollout frame",
+            )
+        },
+        commit=False,
+    )
+    
     angvel_rewards = [state.metrics["angvel_reward"] for state in rollout]
     table = wandb.Table(
         data=[[x, y] for (x, y) in zip(range(len(angvel_rewards)), angvel_rewards)],
@@ -386,8 +407,14 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     #         length = len(done_array) - start
     #         aligned_traj[start:] = qposes_ref[:length]
 
-    mj_model = mujoco.MjModel.from_xml_path(f"./models/rodent_ghostpair_scale080.xml")
-
+    root = mjcf_dm.from_path(f"./models/rodent_ghostpair_scale080.xml")
+    rescale.rescale_subtree(
+            root,
+            .9 / .8,
+            .9 / .8,
+    )
+    
+    mj_model = mjcf_dm.Physics.from_mjcf_model(root).model.ptr
     mj_model.opt.solver = {
         "cg": mujoco.mjtSolver.mjSOL_CG,
         "newton": mujoco.mjtSolver.mjSOL_NEWTON,
@@ -406,7 +433,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     video_path = f"{model_path}/{num_steps}.mp4"
 
     with imageio.get_writer(video_path, fps=int((1.0 / env.dt))) as video:
-        for qpos1, qpos2 in zip(qposes_ref, qposes_rollout):
+        for qpos1, qpos2 in zip(qposes_rollout, qposes_ref):
             mj_data.qpos = np.append(qpos1, qpos2)
             mujoco.mj_forward(mj_model, mj_data)
             renderer.update_scene(mj_data, camera=f"close_profile")

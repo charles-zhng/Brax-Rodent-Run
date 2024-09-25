@@ -3,10 +3,11 @@
   <size njmax="8000" nconmax="4000"/>
   <visual>
     <quality shadowsize="2048"/>
-  </visual>
+    <global offwidth="1920" offheight="1200" elevation="-20" azimuth="120"/> 
+ </visual>
   <statistic meansize="0.0030000000000000001"/>
   <default>
-    <default class="/">
+    <default class="default">
       <joint limited="true" solreflimit="0.01 1" solimplimit="0.98999999999999999 0.99990000000000001 0" armature="5.9999999999999997e-07" damping="0.001"/>
       <geom friction="0.69999999999999996 0.0050000000000000001 0.0001" solref="0.0050000000000000001 1"/>
       <site group="3" rgba="0 0 1 1"/>
@@ -159,22 +160,22 @@
   <asset>
     <texture type="skybox" builtin="gradient" rgb1="0.29999999999999999 0.5 0.69999999999999996" rgb2="0 0 0" width="32" height="512"/>
     <texture name="body" type="cube" builtin="flat" rgb1="1 1 1" rgb2="1 1 1" mark="cross" markrgb="1 1 1" random="0.01" width="128" height="128"/>
-    <material name="body" class="/" texture="body" texuniform="true" rgba="1 1 1 0.2"/>
-    <skin name="skin" file="rodent_walker_skin.skn"/>
+    <material name="body" class="default" texture="body" texuniform="true" rgba="1 1 1 0.2"/>
     <texture name="grid" type="2d" builtin="checker" rgb1="0.10000000000000001 0.20000000000000001 0.29999999999999999" rgb2="0.20000000000000001 0.29999999999999999 0.40000000000000002" width="512" height="512"/>
-    <material name="grid" class="/" texture="grid" texrepeat="1 1" texuniform="true" reflectance="0.20000000000000001"/>
+    <material name="grid" class="default" texture="grid" texrepeat="1 1" texuniform="true" reflectance="0.20000000000000001"/>
   </asset>
   <worldbody>
-    <geom name="floor" class="/" type="plane" condim="3" size="0 0 0.080000000000000016" material="grid"/>
+    <geom name="floor" class="default" type="plane" condim="3" size="0 0 0.080000000000000016" material="grid"/>
+    <camera name="close_profile" mode="trackcom" pos=".5 -.5 0.5" xyaxes="1 1 0 -1 1 2"/>
     <body name="rodent">
       <freejoint name="root"/>
     <body name="torso" pos="0.024796208436626305 1.6468199501211665e-07 0.052071658104959742">
      
-      <light name="tracking_light" class="/" mode="trackcom" pos="0 0 2.4000000000000004"/>
-      <camera name="back" class="/" mode="trackcom" pos="-0.80000000000000004 0 0.40000000000000002" xyaxes="0 -1 0 1 0 2"/>
-      <camera name="side" class="/" mode="trackcom" pos="0 -0.80000000000000004 0.40000000000000002" xyaxes="1 0 0 0 1 2"/>
-      <camera name="side_alt" class="/" mode="trackcom" pos="0.40000000000000002 -0.44880000000000009 0.15920000000000001" xyaxes="0.76600000000000001 0.64300000000000002 0 -0.16200000000000001 0.192 0.96799999999999997"/>
-      <camera name="top" class="/" mode="trackcom" fovy="100" pos="0 0 0.80000000000000004" zaxis="0 -0.20000000000000001 1"/>
+      <light name="tracking_light" class="default" mode="trackcom" pos="0 0 2.4000000000000004"/>
+      <camera name="back" class="default" mode="trackcom" pos="-0.80000000000000004 0 0.40000000000000002" xyaxes="0 -1 0 1 0 2"/>
+      <camera name="side" class="default" mode="trackcom" pos="0 -0.80000000000000004 0.40000000000000002" xyaxes="1 0 0 0 1 2"/>
+      <camera name="side_alt" class="default" mode="trackcom" pos="0.40000000000000002 -0.44880000000000009 0.15920000000000001" xyaxes="0.76600000000000001 0.64300000000000002 0 -0.16200000000000001 0.192 0.96799999999999997"/>
+      <camera name="top" class="default" mode="trackcom" fovy="100" pos="0 0 0.80000000000000004" zaxis="0 -0.20000000000000001 1"/>
       <geom name="collision_torso" class="nonself_collision_primitive" type="ellipsoid" size="0.040000000000000008 0.019200000000000002 0.020799999999999999" density="468.25126000900002" pos="-0.0065600000000000007 0 0" euler="0 0.17453292519943289 0"/>
       <body name="vertebra_1" pos="-0.015343554933286825 -1.5042684742071753e-07 0.013477165525192712">
         <geom name="vertebra_1_collision" class="nonself_collision_primitive" type="sphere" size="0.0080000000000000002" pos="0 0 -0.001312"/>
@@ -193,21 +194,21 @@
                     <geom name="collision_pelvis_L" class="nonself_collision_primitive" size="0.0104 0.016800000000000002 0" density="1548.57736929" pos="-0.00065600000000000001 0.0052480000000000001 -0.0045920000000000006" euler="0 0.87266462599716477 0"/>
                     <geom name="collision_pelvis_R" class="nonself_collision_primitive" size="0.0104 0.016800000000000002 0" density="1548.57736929" pos="-0.00065600000000000001 -0.0052480000000000001 -0.0045920000000000006" euler="0 0.87266462599716477 0"/>
                     <geom name="collision_pelvis_gut" class="nonself_collision_primitive" type="ellipsoid" size="0.016 0.016 0.0144" density="1548.57736929" pos="0.016400000000000001 0 -0.013120000000000001" euler="0 -0.52359877559829882 0"/>
-                    <site name="hip_L" class="/" size="0.0017600000000000003" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124"/>
-                    <site name="hip_R" class="/" size="0.0017600000000000003" pos="-0.0038482339334116921 -0.009193003285372375 -0.0079102586409018124"/>
+                    <site name="hip_L" class="default" size="0.0017600000000000003" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124"/>
+                    <site name="hip_R" class="default" size="0.0017600000000000003" pos="-0.0038482339334116921 -0.009193003285372375 -0.0079102586409018124"/>
                     <body name="upper_leg_L" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124">
                       <joint name="hip_L_supinate" class="hip_supinate" axis="-0 -0 1"/>
                       <joint name="hip_L_abduct" class="hip_abduct" axis="1 -0 -0"/>
                       <joint name="hip_L_extend" class="hip_extend" axis="0 1 0"/>
-                      <site name="knee_L" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
+                      <site name="knee_L" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
                       <geom name="upper_leg_L0_collision" class="collision_primitive" size="0.0069939224017847856 0.01398784480356957" density="1561.7555055600001" pos="0.006882019643356229 0.0086025245541952889 -0.010323029465034345" euler="0.6108652381980153 -0.69813170079773179 0"/>
                       <body name="lower_leg_L" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808">
                         <joint name="knee_L" class="knee" axis="0.5 -1 0"/>
-                        <site name="ankle_L" class="/" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
+                        <site name="ankle_L" class="default" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
                         <body name="foot_L" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097">
                           <joint name="ankle_L" class="ankle" axis="-0.29999999999999999 1 0"/>
                           <geom name="foot_L_collision" class="collision_primitive_paw" size="0.0025685697662671744 0.0099073405270305292" density="2041.1597822799999" pos="0.006619571226208547 0.0018053376071477849 -0.0018053376071477849" euler="1.570796326794897 -1.2217304763960311 0"/>
-                          <site name="toe_L" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
+                          <site name="toe_L" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
                           <body name="toe_L" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873">
                             <joint name="toe_L" class="toe" axis="0 1 0"/>
                             <geom name="toe_L0_collision" class="collision_primitive_paw" size="0.0019065667393199856 0.0058025944240173467" pos="0.0067973248967060354 -0.00067973248967060338 0" euler="1.570796326794897 -1.2217304763960311 0"/>
@@ -223,15 +224,15 @@
                       <joint name="hip_R_supinate" class="hip_supinate" axis="0 0 -1"/>
                       <joint name="hip_R_abduct" class="hip_abduct" axis="-1 0 0"/>
                       <joint name="hip_R_extend" class="hip_extend" axis="0 1 0"/>
-                      <site name="knee_R" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
+                      <site name="knee_R" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
                       <geom name="upper_leg_R0_collision" class="collision_primitive" size="0.0069939224017847856 0.01398784480356957" density="1561.7555055600001" pos="0.006882019643356229 -0.0086025245541952889 -0.010323029465034345" euler="-0.6108652381980153 -0.69813170079773179 0"/>
                       <body name="lower_leg_R" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808">
                         <joint name="knee_R" class="knee" axis="-0.5 -1 0"/>
-                        <site name="ankle_R" class="/" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
+                        <site name="ankle_R" class="default" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
                         <body name="foot_R" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097">
                           <joint name="ankle_R" class="ankle" axis="0.29999999999999999 1 0"/>
                           <geom name="foot_R_collision" class="collision_primitive_paw" size="0.0025685697662671744 0.0099073405270305292" density="2041.1597822799999" pos="0.006619571226208547 -0.0018053376071477849 -0.0018053376071477849" euler="1.570796326794897 1.2217304763960311 0"/>
-                          <site name="toe_R" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
+                          <site name="toe_R" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
                           <body name="toe_R" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873">
                             <joint name="toe_R" class="toe" axis="0 1 0"/>
                             <geom name="toe_R0_collision" class="collision_primitive_paw" size="0.0019065667393199856 0.0058025944240173467" pos="0.0067973248967060354 0.00067973248967060338 0" euler="1.570796326794897 1.2217304763960311 0"/>
@@ -401,7 +402,7 @@
                       <geom name="skull_T2_collision" class="collision_primitive" type="ellipsoid" group="1" size="0.0017676182406373847 0.0013356521739130434 0.0056000000000000008" rgba="1 1 1 1" density="703.10773841000002" pos="0.022466427838501161 -0.00073015652173913045 -0.0098400000000000015" euler="0 0.52359877559829882 0"/>
                       <joint name="atlas" class="atlas" pos="-0.022748668392038433 0 0"/>
                       <site name="head" class="sensor" type="box" size="0.0016000000000000001 0.0016000000000000001 0.0016000000000000001"/>
-                      <camera name="egocentric" class="/" fovy="80" pos="0.0080000000000000002 0 0.0040000000000000001" euler="0 -1.570796326794897 -1.570796326794897"/>
+                      <camera name="egocentric" class="default" fovy="80" pos="0.0080000000000000002 0 0.0040000000000000001" euler="0 -1.570796326794897 -1.570796326794897"/>
                       <body name="jaw" pos="0.00036236173933066397 -1.2710382270135465e-08 -0.013120000000000001" euler="0 0.26179938779914941 0">
                         <geom name="jaw_back_collision" class="collision_primitive" type="ellipsoid" size="0.0097219003235056167 0.010685217391304354 0.0056000000000000008" density="314.05727497700002" pos="-0.0086966817439359367 0 0.0016400000000000002" euler="0 0.95993108859688125 0"/>
                         <geom name="jaw_F_collision" class="collision_primitive" type="ellipsoid" size="0.0026514273609560776 0.0053426086956521743 0.0096000000000000009" density="314.05727497700002" pos="0.0021741704359839833 0 -0.0039360000000000003" euler="0 1.8325957145940459 0"/>
@@ -434,18 +435,18 @@
         <joint name="scapula_L_supinate" class="scapula_supinate" pos="0 -0.004000000000000001 0" axis="-0 -0 1"/>
         <joint name="scapula_L_abduct" class="scapula_abduct" pos="0 -0.004000000000000001 -0.0080000000000000002" axis="1 -0 -0"/>
         <joint name="scapula_L_extend" class="scapula_extend" pos="0 0 0" axis="0.29999999999999999 1 0"/>
-        <site name="shoulder_L" class="/" size="0.0016000000000000001" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003"/>
+        <site name="shoulder_L" class="default" size="0.0016000000000000001" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003"/>
         <body name="upper_arm_L" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003">
           <joint name="shoulder_L" class="shoulder" axis="0 1 0"/>
           <joint name="shoulder_sup_L" class="shoulder_sup" axis="0 0 -1"/>
-          <site name="elbow_L" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042" zaxis="0 1 0.20000000000000001"/>
+          <site name="elbow_L" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042" zaxis="0 1 0.20000000000000001"/>
           <body name="lower_arm_L" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042">
             <joint name="elbow_L" class="elbow" axis="0 1 0.20000000000000001"/>
-            <site name="wrist_L" class="/" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
+            <site name="wrist_L" class="default" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
             <body name="hand_L" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592">
               <joint name="wrist_L" class="wrist" axis="0.59999999999999998 -1 0"/>
               <geom name="hand_L_collision" class="collision_primitive_paw" type="ellipsoid" size="0.0051761532709454338 0.0029578018691116762 0.0017746811214670059" density="2531.7812283100002" pos="0.0012126987663357873 0.00060634938316789363 -0.0036380962990073609" euler="-0.69813170079773179 0.87266462599716477 0.78539816339744828"/>
-              <site name="finger_L" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295" zaxis="-0.20000000000000001 1 0"/>
+              <site name="finger_L" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295" zaxis="-0.20000000000000001 1 0"/>
               <body name="finger_L" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295">
                 <joint name="finger_L" class="finger" axis="-0.5 1 0"/>
                 <geom name="finger_L0_collision" class="collision_primitive_paw" size="0.0014789009345558377 0.0025880766354727169" pos="0.0039412709905913088 -0.00060634938316789363 0" euler="1.570796326794897 -1.308996938995747 0"/>
@@ -465,18 +466,18 @@
         <joint name="scapula_R_supinate" class="scapula_supinate" pos="0 0.004000000000000001 0" axis="0 0 -1"/>
         <joint name="scapula_R_abduct" class="scapula_abduct" pos="0 0.004000000000000001 -0.0080000000000000002" axis="-1 0 0"/>
         <joint name="scapula_R_extend" class="scapula_extend" pos="0 0 0" axis="-0.29999999999999999 1 0"/>
-        <site name="shoulder_R" class="/" size="0.0016000000000000001" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003"/>
+        <site name="shoulder_R" class="default" size="0.0016000000000000001" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003"/>
         <body name="upper_arm_R" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003">
           <joint name="shoulder_R" class="shoulder" axis="0 1 0"/>
           <joint name="shoulder_sup_R" class="shoulder_sup" axis="-0 -0 1"/>
-          <site name="elbow_R" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042" zaxis="0 1 -0.20000000000000001"/>
+          <site name="elbow_R" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042" zaxis="0 1 -0.20000000000000001"/>
           <body name="lower_arm_R" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042">
             <joint name="elbow_R" class="elbow" axis="0 1 -0.20000000000000001"/>
-            <site name="wrist_R" class="/" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
+            <site name="wrist_R" class="default" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
             <body name="hand_R" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592">
               <joint name="wrist_R" class="wrist" axis="-0.59999999999999998 -1 0"/>
               <geom name="hand_R_collision" class="collision_primitive_paw" type="ellipsoid" size="0.0051761532709454338 0.0029578018691116762 0.0017746811214670059" density="2531.7812283100002" pos="0.0012126987663357873 -0.00060634938316789363 -0.0036380962990073609" euler="0.69813170079773179 0.87266462599716477 -0.78539816339744828"/>
-              <site name="finger_R" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295" zaxis="0.20000000000000001 1 0"/>
+              <site name="finger_R" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295" zaxis="0.20000000000000001 1 0"/>
               <body name="finger_R" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295">
                 <joint name="finger_R" class="finger" axis="0.5 1 0"/>
                 <geom name="finger_R0_collision" class="collision_primitive_paw" size="0.0014789009345558377 0.0025880766354727169" pos="0.0039412709905913088 0.00060634938316789363 0" euler="1.570796326794897 1.308996938995747 0"/>
@@ -516,21 +517,21 @@
                     <geom name="ghost_collision_pelvis_L" class="ghost_nonself_collision_primitive" size="0.0104 0.016800000000000002 0" density="1548.57736929" pos="-0.00065600000000000001 0.0052480000000000001 -0.0045920000000000006" euler="0 0.87266462599716477 0"/>
                     <geom name="ghost_collision_pelvis_R" class="ghost_nonself_collision_primitive" size="0.0104 0.016800000000000002 0" density="1548.57736929" pos="-0.00065600000000000001 -0.0052480000000000001 -0.0045920000000000006" euler="0 0.87266462599716477 0"/>
                     <geom name="ghost_collision_pelvis_gut" class="ghost_nonself_collision_primitive" type="ellipsoid" size="0.016 0.016 0.0144" density="1548.57736929" pos="0.016400000000000001 0 -0.013120000000000001" euler="0 -0.52359877559829882 0"/>
-                    <site name="ghost_hip_L" class="/" size="0.0017600000000000003" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124"/>
-                    <site name="ghost_hip_R" class="/" size="0.0017600000000000003" pos="-0.0038482339334116921 -0.009193003285372375 -0.0079102586409018124"/>
+                    <site name="ghost_hip_L" class="default" size="0.0017600000000000003" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124"/>
+                    <site name="ghost_hip_R" class="default" size="0.0017600000000000003" pos="-0.0038482339334116921 -0.009193003285372375 -0.0079102586409018124"/>
                     <body name="ghost_upper_leg_L" pos="-0.0038482339334116921 0.009193003285372375 -0.0079102586409018124">
                       <joint name="ghost_hip_L_supinate" class="hip_supinate" axis="-0 -0 1"/>
                       <joint name="ghost_hip_L_abduct" class="hip_abduct" axis="1 -0 -0"/>
                       <joint name="ghost_hip_L_extend" class="hip_extend" axis="0 1 0"/>
-                      <site name="ghost_knee_L" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
+                      <site name="ghost_knee_L" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
                       <geom name="ghost_upper_leg_L0_collision" class="ghost_collision_primitive" size="0.0069939224017847856 0.01398784480356957" density="1561.7555055600001" pos="0.006882019643356229 0.0086025245541952889 -0.010323029465034345" euler="0.6108652381980153 -0.69813170079773179 0"/>
                       <body name="ghost_lower_leg_L" pos="0.012338116276694889 0.013983198446920864 -0.020563527127824808">
                         <joint name="ghost_knee_L" class="knee" axis="0.5 -1 0"/>
-                        <site name="ghost_ankle_L" class="/" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
+                        <site name="ghost_ankle_L" class="default" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
                         <body name="ghost_foot_L" pos="-0.025841232270267252 -0.0037816437468683774 -0.017647670818719097">
                           <joint name="ghost_ankle_L" class="ankle" axis="-0.29999999999999999 1 0"/>
                           <geom name="ghost_foot_L_collision" class="ghost_collision_primitive_paw" size="0.0025685697662671744 0.0099073405270305292" density="2041.1597822799999" pos="0.006619571226208547 0.0018053376071477849 -0.0018053376071477849" euler="1.570796326794897 -1.2217304763960311 0"/>
-                          <site name="ghost_toe_L" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
+                          <site name="ghost_toe_L" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
                           <body name="ghost_toe_L" pos="0.016879954490938105 0.0060914618380341849 -0.0022017331944701873">
                             <joint name="ghost_toe_L" class="toe" axis="0 1 0"/>
                             <geom name="ghost_toe_L0_collision" class="ghost_collision_primitive_paw" size="0.0019065667393199856 0.0058025944240173467" pos="0.0067973248967060354 -0.00067973248967060338 0" euler="1.570796326794897 -1.2217304763960311 0"/>
@@ -546,15 +547,15 @@
                       <joint name="ghost_hip_R_supinate" class="hip_supinate" axis="0 0 -1"/>
                       <joint name="ghost_hip_R_abduct" class="hip_abduct" axis="-1 0 0"/>
                       <joint name="ghost_hip_R_extend" class="hip_extend" axis="0 1 0"/>
-                      <site name="ghost_knee_R" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
+                      <site name="ghost_knee_R" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808" zaxis="0 1 0"/>
                       <geom name="ghost_upper_leg_R0_collision" class="ghost_collision_primitive" size="0.0069939224017847856 0.01398784480356957" density="1561.7555055600001" pos="0.006882019643356229 -0.0086025245541952889 -0.010323029465034345" euler="-0.6108652381980153 -0.69813170079773179 0"/>
                       <body name="ghost_lower_leg_R" pos="0.012338116276694889 -0.013983198446920864 -0.020563527127824808">
                         <joint name="ghost_knee_R" class="knee" axis="-0.5 -1 0"/>
-                        <site name="ghost_ankle_R" class="/" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
+                        <site name="ghost_ankle_R" class="default" type="cylinder" size="0.00048000000000000007 0.0020799999999999998" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097" zaxis="0 1 0"/>
                         <body name="ghost_foot_R" pos="-0.025841232270267252 0.0037816437468683774 -0.017647670818719097">
                           <joint name="ghost_ankle_R" class="ankle" axis="0.29999999999999999 1 0"/>
                           <geom name="ghost_foot_R_collision" class="ghost_collision_primitive_paw" size="0.0025685697662671744 0.0099073405270305292" density="2041.1597822799999" pos="0.006619571226208547 -0.0018053376071477849 -0.0018053376071477849" euler="1.570796326794897 1.2217304763960311 0"/>
-                          <site name="ghost_toe_R" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
+                          <site name="ghost_toe_R" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873" zaxis="0 1 0"/>
                           <body name="ghost_toe_R" pos="0.016879954490938105 -0.0060914618380341849 -0.0022017331944701873">
                             <joint name="ghost_toe_R" class="toe" axis="0 1 0"/>
                             <geom name="ghost_toe_R0_collision" class="ghost_collision_primitive_paw" size="0.0019065667393199856 0.0058025944240173467" pos="0.0067973248967060354 0.00067973248967060338 0" euler="1.570796326794897 1.2217304763960311 0"/>
@@ -724,7 +725,7 @@
                       <geom name="ghost_skull_T2_collision" class="ghost_collision_primitive" type="ellipsoid" group="1" size="0.0017676182406373847 0.0013356521739130434 0.0056000000000000008" rgba="1 1 1 1" density="703.10773841000002" pos="0.022466427838501161 -0.00073015652173913045 -0.0098400000000000015" euler="0 0.52359877559829882 0"/>
                       <joint name="ghost_atlas" class="atlas" pos="-0.022748668392038433 0 0"/>
                       <site name="ghost_head" class="sensor" type="box" size="0.0016000000000000001 0.0016000000000000001 0.0016000000000000001"/>
-                      <camera name="ghost_egocentric" class="/" fovy="80" pos="0.0080000000000000002 0 0.0040000000000000001" euler="0 -1.570796326794897 -1.570796326794897"/>
+                      <camera name="ghost_egocentric" class="default" fovy="80" pos="0.0080000000000000002 0 0.0040000000000000001" euler="0 -1.570796326794897 -1.570796326794897"/>
                       <body name="ghost_jaw" pos="0.00036236173933066397 -1.2710382270135465e-08 -0.013120000000000001" euler="0 0.26179938779914941 0">
                         <geom name="ghost_jaw_back_collision" class="ghost_collision_primitive" type="ellipsoid" size="0.0097219003235056167 0.010685217391304354 0.0056000000000000008" density="314.05727497700002" pos="-0.0086966817439359367 0 0.0016400000000000002" euler="0 0.95993108859688125 0"/>
                         <geom name="ghost_jaw_F_collision" class="ghost_collision_primitive" type="ellipsoid" size="0.0026514273609560776 0.0053426086956521743 0.0096000000000000009" density="314.05727497700002" pos="0.0021741704359839833 0 -0.0039360000000000003" euler="0 1.8325957145940459 0"/>
@@ -757,18 +758,18 @@
         <joint name="ghost_scapula_L_supinate" class="scapula_supinate" pos="0 -0.004000000000000001 0" axis="-0 -0 1"/>
         <joint name="ghost_scapula_L_abduct" class="scapula_abduct" pos="0 -0.004000000000000001 -0.0080000000000000002" axis="1 -0 -0"/>
         <joint name="ghost_scapula_L_extend" class="scapula_extend" pos="0 0 0" axis="0.29999999999999999 1 0"/>
-        <site name="ghost_shoulder_L" class="/" size="0.0016000000000000001" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003"/>
+        <site name="ghost_shoulder_L" class="default" size="0.0016000000000000001" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003"/>
         <body name="ghost_upper_arm_L" pos="0.022960000000000001 0.0078720000000000005 -0.020336000000000003">
           <joint name="ghost_shoulder_L" class="shoulder" axis="0 1 0"/>
           <joint name="ghost_shoulder_sup_L" class="shoulder_sup" axis="0 0 -1"/>
-          <site name="ghost_elbow_L" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042" zaxis="0 1 0.20000000000000001"/>
+          <site name="ghost_elbow_L" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042" zaxis="0 1 0.20000000000000001"/>
           <body name="ghost_lower_arm_L" pos="-0.012744966689065745 0.0082842283478927366 -0.017842953364692042">
             <joint name="ghost_elbow_L" class="elbow" axis="0 1 0.20000000000000001"/>
-            <site name="ghost_wrist_L" class="/" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
+            <site name="ghost_wrist_L" class="default" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
             <body name="ghost_hand_L" pos="0.017282123011834464 0.010081238423570105 -0.015841946094181592">
               <joint name="ghost_wrist_L" class="wrist" axis="0.59999999999999998 -1 0"/>
               <geom name="ghost_hand_L_collision" class="ghost_collision_primitive_paw" type="ellipsoid" size="0.0051761532709454338 0.0029578018691116762 0.0017746811214670059" density="2531.7812283100002" pos="0.0012126987663357873 0.00060634938316789363 -0.0036380962990073609" euler="-0.69813170079773179 0.87266462599716477 0.78539816339744828"/>
-              <site name="ghost_finger_L" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295" zaxis="-0.20000000000000001 1 0"/>
+              <site name="ghost_finger_L" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295" zaxis="-0.20000000000000001 1 0"/>
               <body name="ghost_finger_L" pos="0.0024253975326715745 0.0012126987663357873 -0.0066698432148468295">
                 <joint name="ghost_finger_L" class="finger" axis="-0.5 1 0"/>
                 <geom name="ghost_finger_L0_collision" class="ghost_collision_primitive_paw" size="0.0014789009345558377 0.0025880766354727169" pos="0.0039412709905913088 -0.00060634938316789363 0" euler="1.570796326794897 -1.308996938995747 0"/>
@@ -788,18 +789,18 @@
         <joint name="ghost_scapula_R_supinate" class="scapula_supinate" pos="0 0.004000000000000001 0" axis="0 0 -1"/>
         <joint name="ghost_scapula_R_abduct" class="scapula_abduct" pos="0 0.004000000000000001 -0.0080000000000000002" axis="-1 0 0"/>
         <joint name="ghost_scapula_R_extend" class="scapula_extend" pos="0 0 0" axis="-0.29999999999999999 1 0"/>
-        <site name="ghost_shoulder_R" class="/" size="0.0016000000000000001" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003"/>
+        <site name="ghost_shoulder_R" class="default" size="0.0016000000000000001" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003"/>
         <body name="ghost_upper_arm_R" pos="0.022960000000000001 -0.0078720000000000005 -0.020336000000000003">
           <joint name="ghost_shoulder_R" class="shoulder" axis="0 1 0"/>
           <joint name="ghost_shoulder_sup_R" class="shoulder_sup" axis="-0 -0 1"/>
-          <site name="ghost_elbow_R" class="/" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042" zaxis="0 1 -0.20000000000000001"/>
+          <site name="ghost_elbow_R" class="default" type="cylinder" size="0.00048000000000000007 0.0032000000000000002" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042" zaxis="0 1 -0.20000000000000001"/>
           <body name="ghost_lower_arm_R" pos="-0.012744966689065745 -0.0082842283478927366 -0.017842953364692042">
             <joint name="ghost_elbow_R" class="elbow" axis="0 1 -0.20000000000000001"/>
-            <site name="ghost_wrist_R" class="/" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
+            <site name="ghost_wrist_R" class="default" type="cylinder" size="0.00064000000000000005 0.0027200000000000002" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592" zaxis="0 1 0"/>
             <body name="ghost_hand_R" pos="0.017282123011834464 -0.010081238423570105 -0.015841946094181592">
               <joint name="ghost_wrist_R" class="wrist" axis="-0.59999999999999998 -1 0"/>
               <geom name="ghost_hand_R_collision" class="ghost_collision_primitive_paw" type="ellipsoid" size="0.0051761532709454338 0.0029578018691116762 0.0017746811214670059" density="2531.7812283100002" pos="0.0012126987663357873 -0.00060634938316789363 -0.0036380962990073609" euler="0.69813170079773179 0.87266462599716477 -0.78539816339744828"/>
-              <site name="ghost_finger_R" class="/" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295" zaxis="0.20000000000000001 1 0"/>
+              <site name="ghost_finger_R" class="default" type="cylinder" size="0.00048000000000000007 0.004000000000000001" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295" zaxis="0.20000000000000001 1 0"/>
               <body name="ghost_finger_R" pos="0.0024253975326715745 -0.0012126987663357873 -0.0066698432148468295">
                 <joint name="ghost_finger_R" class="finger" axis="0.5 1 0"/>
                 <geom name="ghost_finger_R0_collision" class="ghost_collision_primitive_paw" size="0.0014789009345558377 0.0025880766354727169" pos="0.0039412709905913088 0.00060634938316789363 0" euler="1.570796326794897 1.308996938995747 0"/>
@@ -902,44 +903,44 @@
     </fixed>
   </tendon>
   <actuator>
-    <general name="lumbar_extend" class="/" forcerange="-20 20" tendon="lumbar_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="2.6179938779914949 -20"/>
-    <general name="lumbar_bend" class="/" forcerange="-20 20" tendon="lumbar_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.10471975511965979" biasprm="0 -20"/>
-    <general name="lumbar_twist" class="/" forcerange="-20 20" tendon="lumbar_twist" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.10471975511965979" biasprm="0 -20"/>
-    <general name="cervical_extend" class="/" forcerange="-20 20" tendon="cervical_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1018108730330026" biasprm="2.0362174606600498 -20"/>
-    <general name="cervical_bend" class="/" forcerange="-20 20" tendon="cervical_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0 -20"/>
-    <general name="cervical_twist" class="/" forcerange="-20 20" tendon="cervical_twist" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0 -20"/>
-    <general name="caudal_extend" class="/" forcerange="-0.10000000000000001 0.10000000000000001" tendon="caudal_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.026179938779914948" biasprm="0 -0.10000000000000001"/>
-    <general name="caudal_bend" class="/" forcerange="-0.10000000000000001 0.10000000000000001" tendon="caudal_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.026179938779914941" biasprm="0 -0.10000000000000001"/>
-    <general name="hip_L_supinate" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_L_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.24434609527920609" biasprm="-0.034906585039886598 -0.40000000000000002"/>
-    <general name="hip_L_abduct" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_L_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.31415926535897931" biasprm="0.10471975511965979 -0.40000000000000002"/>
-    <general name="hip_L_extend" class="/" forcerange="-0.29999999999999999 0.29999999999999999" joint="hip_L_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.78539816339744817" biasprm="-0.15707963267948971 -0.59999999999999998"/>
-    <general name="knee_L" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="knee_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.55152404363020813" biasprm="0.062831853071795868 -0.40000000000000002"/>
-    <general name="ankle_L" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="ankle_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30717794835100198" biasprm="0.25132741228718353 -0.40000000000000002"/>
-    <general name="toe_L" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="toe_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.021816615649929118 -0.050000000000000003"/>
-    <general name="hip_R_supinate" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_R_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.24434609527920609" biasprm="-0.034906585039886598 -0.40000000000000002"/>
-    <general name="hip_R_abduct" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_R_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.31415926535897931" biasprm="0.10471975511965979 -0.40000000000000002"/>
-    <general name="hip_R_extend" class="/" forcerange="-0.29999999999999999 0.29999999999999999" joint="hip_R_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.78539816339744817" biasprm="-0.15707963267948971 -0.59999999999999998"/>
-    <general name="knee_R" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="knee_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.55152404363020813" biasprm="0.062831853071795868 -0.40000000000000002"/>
-    <general name="ankle_R" class="/" forcerange="-0.20000000000000001 0.20000000000000001" joint="ankle_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30717794835100198" biasprm="0.25132741228718353 -0.40000000000000002"/>
-    <general name="toe_R" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="toe_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.021816615649929118 -0.050000000000000003"/>
-    <general name="atlas" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="atlas" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.017453292519943299 -0.050000000000000003"/>
-    <general name="mandible" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="mandible" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.01396263401595464" biasprm="-0.00087266462599716599 -0.050000000000000003"/>
-    <general name="scapula_L_supinate" class="/" forcerange="-0.25 0.25" joint="scapula_L_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.04799655442984406" biasprm="0.039269908169872407 -0.5"/>
-    <general name="scapula_L_abduct" class="/" forcerange="-0.25 0.25" joint="scapula_L_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="0 -0.5"/>
-    <general name="scapula_L_extend" class="/" forcerange="-0.25 0.25" joint="scapula_L_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.017453292519943299" biasprm="0 -0.5"/>
-    <general name="shoulder_L" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.3272492347489368" biasprm="-0.065449846949787366 -0.29999999999999999"/>
-    <general name="shoulder_sup_L" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_sup_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.17802358370342161" biasprm="0.1623156204354726 -0.29999999999999999"/>
-    <general name="elbow_L" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="elbow_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30106929596902182" biasprm="-0.091629785729702304 -0.29999999999999999"/>
-    <general name="wrist_L" class="/" forcerange="-0.050000000000000003 0.050000000000000003" joint="wrist_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0.087266462599716474 -0.10000000000000001"/>
-    <general name="finger_L" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="finger_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.039269908169872407" biasprm="0.039269908169872407 -0.050000000000000003"/>
-    <general name="scapula_R_supinate" class="/" forcerange="-0.25 0.25" joint="scapula_R_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.04799655442984406" biasprm="0.039269908169872407 -0.5"/>
-    <general name="scapula_R_abduct" class="/" forcerange="-0.25 0.25" joint="scapula_R_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="0 -0.5"/>
-    <general name="scapula_R_extend" class="/" forcerange="-0.25 0.25" joint="scapula_R_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.017453292519943299" biasprm="0 -0.5"/>
-    <general name="shoulder_R" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.3272492347489368" biasprm="-0.065449846949787366 -0.29999999999999999"/>
-    <general name="shoulder_sup_R" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_sup_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.17802358370342161" biasprm="0.1623156204354726 -0.29999999999999999"/>
-    <general name="elbow_R" class="/" forcerange="-0.14999999999999999 0.14999999999999999" joint="elbow_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30106929596902182" biasprm="-0.091629785729702304 -0.29999999999999999"/>
-    <general name="wrist_R" class="/" forcerange="-0.050000000000000003 0.050000000000000003" joint="wrist_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0.087266462599716474 -0.10000000000000001"/>
-    <general name="finger_R" class="/" forcerange="-0.025000000000000001 0.025000000000000001" joint="finger_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.039269908169872407" biasprm="0.039269908169872407 -0.050000000000000003"/>
+    <general name="lumbar_extend" class="default" forcerange="-20 20" tendon="lumbar_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="2.6179938779914949 -20"/>
+    <general name="lumbar_bend" class="default" forcerange="-20 20" tendon="lumbar_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.10471975511965979" biasprm="0 -20"/>
+    <general name="lumbar_twist" class="default" forcerange="-20 20" tendon="lumbar_twist" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.10471975511965979" biasprm="0 -20"/>
+    <general name="cervical_extend" class="default" forcerange="-20 20" tendon="cervical_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1018108730330026" biasprm="2.0362174606600498 -20"/>
+    <general name="cervical_bend" class="default" forcerange="-20 20" tendon="cervical_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0 -20"/>
+    <general name="cervical_twist" class="default" forcerange="-20 20" tendon="cervical_twist" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0 -20"/>
+    <general name="caudal_extend" class="default" forcerange="-0.10000000000000001 0.10000000000000001" tendon="caudal_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.026179938779914948" biasprm="0 -0.10000000000000001"/>
+    <general name="caudal_bend" class="default" forcerange="-0.10000000000000001 0.10000000000000001" tendon="caudal_bend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.026179938779914941" biasprm="0 -0.10000000000000001"/>
+    <general name="hip_L_supinate" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_L_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.24434609527920609" biasprm="-0.034906585039886598 -0.40000000000000002"/>
+    <general name="hip_L_abduct" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_L_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.31415926535897931" biasprm="0.10471975511965979 -0.40000000000000002"/>
+    <general name="hip_L_extend" class="default" forcerange="-0.29999999999999999 0.29999999999999999" joint="hip_L_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.78539816339744817" biasprm="-0.15707963267948971 -0.59999999999999998"/>
+    <general name="knee_L" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="knee_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.55152404363020813" biasprm="0.062831853071795868 -0.40000000000000002"/>
+    <general name="ankle_L" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="ankle_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30717794835100198" biasprm="0.25132741228718353 -0.40000000000000002"/>
+    <general name="toe_L" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="toe_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.021816615649929118 -0.050000000000000003"/>
+    <general name="hip_R_supinate" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_R_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.24434609527920609" biasprm="-0.034906585039886598 -0.40000000000000002"/>
+    <general name="hip_R_abduct" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="hip_R_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.31415926535897931" biasprm="0.10471975511965979 -0.40000000000000002"/>
+    <general name="hip_R_extend" class="default" forcerange="-0.29999999999999999 0.29999999999999999" joint="hip_R_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.78539816339744817" biasprm="-0.15707963267948971 -0.59999999999999998"/>
+    <general name="knee_R" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="knee_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.55152404363020813" biasprm="0.062831853071795868 -0.40000000000000002"/>
+    <general name="ankle_R" class="default" forcerange="-0.20000000000000001 0.20000000000000001" joint="ankle_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30717794835100198" biasprm="0.25132741228718353 -0.40000000000000002"/>
+    <general name="toe_R" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="toe_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.021816615649929118 -0.050000000000000003"/>
+    <general name="atlas" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="atlas" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.021816615649929118" biasprm="0.017453292519943299 -0.050000000000000003"/>
+    <general name="mandible" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="mandible" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.01396263401595464" biasprm="-0.00087266462599716599 -0.050000000000000003"/>
+    <general name="scapula_L_supinate" class="default" forcerange="-0.25 0.25" joint="scapula_L_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.04799655442984406" biasprm="0.039269908169872407 -0.5"/>
+    <general name="scapula_L_abduct" class="default" forcerange="-0.25 0.25" joint="scapula_L_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="0 -0.5"/>
+    <general name="scapula_L_extend" class="default" forcerange="-0.25 0.25" joint="scapula_L_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.017453292519943299" biasprm="0 -0.5"/>
+    <general name="shoulder_L" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.3272492347489368" biasprm="-0.065449846949787366 -0.29999999999999999"/>
+    <general name="shoulder_sup_L" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_sup_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.17802358370342161" biasprm="0.1623156204354726 -0.29999999999999999"/>
+    <general name="elbow_L" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="elbow_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30106929596902182" biasprm="-0.091629785729702304 -0.29999999999999999"/>
+    <general name="wrist_L" class="default" forcerange="-0.050000000000000003 0.050000000000000003" joint="wrist_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0.087266462599716474 -0.10000000000000001"/>
+    <general name="finger_L" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="finger_L" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.039269908169872407" biasprm="0.039269908169872407 -0.050000000000000003"/>
+    <general name="scapula_R_supinate" class="default" forcerange="-0.25 0.25" joint="scapula_R_supinate" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.04799655442984406" biasprm="0.039269908169872407 -0.5"/>
+    <general name="scapula_R_abduct" class="default" forcerange="-0.25 0.25" joint="scapula_R_abduct" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1308996938995747" biasprm="0 -0.5"/>
+    <general name="scapula_R_extend" class="default" forcerange="-0.25 0.25" joint="scapula_R_extend" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.017453292519943299" biasprm="0 -0.5"/>
+    <general name="shoulder_R" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.3272492347489368" biasprm="-0.065449846949787366 -0.29999999999999999"/>
+    <general name="shoulder_sup_R" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="shoulder_sup_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.17802358370342161" biasprm="0.1623156204354726 -0.29999999999999999"/>
+    <general name="elbow_R" class="default" forcerange="-0.14999999999999999 0.14999999999999999" joint="elbow_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.30106929596902182" biasprm="-0.091629785729702304 -0.29999999999999999"/>
+    <general name="wrist_R" class="default" forcerange="-0.050000000000000003 0.050000000000000003" joint="wrist_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.1221730476396031" biasprm="0.087266462599716474 -0.10000000000000001"/>
+    <general name="finger_R" class="default" forcerange="-0.025000000000000001 0.025000000000000001" joint="finger_R" dyntype="filter" biastype="affine" dynprm="0.040000000000000001" gainprm="0.039269908169872407" biasprm="0.039269908169872407 -0.050000000000000003"/>
   </actuator>
   <sensor>
     <accelerometer name="accelerometer" site="head"/>
