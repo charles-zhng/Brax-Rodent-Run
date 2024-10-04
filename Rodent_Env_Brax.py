@@ -115,11 +115,11 @@ class Rodent(PipelineEnv):
         root = mjcf_dm.from_path(_XML_PATH)
 
         # Convert to torque actuators
-        if torque_actuators:
-            for actuator in root.find_all("actuator"):
-                actuator.gainprm = [actuator.forcerange[1]]
-                del actuator.biastype
-                del actuator.biasprm
+        # if torque_actuators:
+        #     for actuator in root.find_all("actuator"):
+        #         actuator.gainprm = [actuator.forcerange[1]]
+        #         del actuator.biastype
+        #         del actuator.biasprm
 
         rescale.rescale_subtree(
             root,
@@ -269,22 +269,21 @@ class Rodent(PipelineEnv):
         )
 
         pos_distance = data.qpos[:3] - self._track_pos[info["cur_frame"]]
-        pos_reward = self._pos_reward_weight * jp.exp(-200 * jp.sum(pos_distance) ** 2)
+        pos_reward = self._pos_reward_weight * jp.exp(-400 * jp.sum(pos_distance ** 2))
 
         quat_distance = jp.sum(
-            self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]])
-            ** 2
+            self._bounded_quat_dist(data.qpos[3:7], self._track_quat[info["cur_frame"]]) ** 2
         )
         quat_reward = self._quat_reward_weight * jp.exp(-4.0 * quat_distance)
 
         joint_distance = (
-            jp.sum(data.qpos[7:] - self._track_joint[state.info["cur_frame"]]) ** 2
+            jp.sum((data.qpos[7:] - self._track_joint[state.info["cur_frame"]])**2)
         )
-        joint_reward = self._joint_reward_weight * jp.exp(-6.0 * joint_distance)
+        joint_reward = self._joint_reward_weight * jp.exp(-0.25 * joint_distance)
         info["joint_distance"] = joint_distance
 
         angvel_reward = self._angvel_reward_weight * jp.exp(
-            -0.5 * jp.sum(data.qvel[3:6] - self._track_angvel[info["cur_frame"]]) ** 2
+            -0.5 * jp.sum((data.qvel[3:6] - self._track_angvel[info["cur_frame"]]) ** 2)
         )
 
         bodypos_reward = self._bodypos_reward_weight * jp.exp(
@@ -294,19 +293,17 @@ class Rodent(PipelineEnv):
                     data.xpos[self._body_idxs]
                     - self._track_bodypos[info["cur_frame"]][self._body_idxs]
                 ).flatten()
-            )
-            ** 2
+            ** 2)
         )
 
         endeff_reward = self._endeff_reward_weight * jp.exp(
-            -400
+            -2500
             * jp.sum(
                 (
                     data.xpos[self._endeff_idxs]
                     - self._track_bodypos[info["cur_frame"]][self._endeff_idxs]
                 ).flatten()
-            )
-            ** 2
+            ** 2)
         )
 
         min_z, max_z = self._healthy_z_range

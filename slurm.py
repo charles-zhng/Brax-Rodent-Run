@@ -13,10 +13,10 @@ def submit():
 #SBATCH -c 4
 #SBATCH -N 1 
 # #SBATCH --constraint="a100"
-#SBATCH -t 0-5:00
-#SBATCH -J rodenta100
+#SBATCH -t 0-8:00
+#SBATCH -J rodent
 #SBATCH --gres=gpu:nvidia_a100-sxm4-80gb:2
-# #SBATCH --gres=gpu:nvidia_h100_80gb_hbm3:4
+# #SBATCH --gres=gpu:nvidia_h100_80gb_hbm3:2
 # # SBATCH -o /slurm/out
 # # SBATCH -e /slurm/error
 source ~/.bashrc
