@@ -115,11 +115,11 @@ class Rodent(PipelineEnv):
         root = mjcf_dm.from_path(_XML_PATH)
 
         # Convert to torque actuators
-        # if torque_actuators:
-        #     for actuator in root.find_all("actuator"):
-        #         actuator.gainprm = [actuator.forcerange[1]]
-        #         del actuator.biastype
-        #         del actuator.biasprm
+        if torque_actuators:
+            for actuator in root.find_all("actuator"):
+                actuator.gainprm = [actuator.forcerange[1]]
+                del actuator.biastype
+                del actuator.biasprm
 
         rescale.rescale_subtree(
             root,
@@ -218,9 +218,9 @@ class Rodent(PipelineEnv):
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
 
-        # Add pos (without z height)
+        # Add pos
         qpos_with_pos = (
-            jp.array(self.sys.qpos0).at[:2].set(self._track_pos[start_frame][:2])
+            jp.array(self.sys.qpos0).at[:3].set(self._track_pos[start_frame])
         )
 
         # Add quat

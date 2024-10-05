@@ -58,11 +58,11 @@ config = {
     "num_updates_per_batch": 8,
     "learning_rate": 7e-5,
     "clipping_epsilon": 0.2,
-    "torque_actuators": False,
+    "torque_actuators": True,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.01,
-    "bad_pose_dist": 40,
-    "bad_quat_dist": 1.5,
+    "bad_pose_dist": 20,
+    "bad_quat_dist": 1,
     "ctrl_cost_weight": 0.02,
     "pos_reward_weight": 1.0,
     "quat_reward_weight": 1.0,
@@ -81,7 +81,7 @@ config = {
 
 envs.register_environment("rodent", Rodent)
 
-clip_id = 84  # 84 is the walking in half circle one
+clip_id = 222  # 84 is the walking in half circle one
 reference_path = f"clips/{clip_id}.p"
 
 if not os.path.exists(reference_path):
@@ -89,7 +89,7 @@ if not os.path.exists(reference_path):
 
     # Process rodent clip and save as pickle
     reference_clip = process_clip_to_train(
-        stac_path="../OLD-stac-mjx/transform_snips_new.p",
+        stac_path="./transform_snips_new.p",
         start_step=clip_id * 250,
         clip_length=250,
         mjcf_path="./models/rodent_new.xml",

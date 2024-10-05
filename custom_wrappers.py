@@ -96,7 +96,7 @@ class RenderRolloutWrapperTracking(Wrapper):
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
 
         # Add pos (without z height)
-        qpos_with_pos = jp.array(self.sys.qpos0).at[:2].set(self._track_pos[0][:2])
+        qpos_with_pos = jp.array(self.sys.qpos0).at[:3].set(self._track_pos[0])
 
         # Add quat
         new_qpos = qpos_with_pos.at[3:7].set(self._track_quat[0])
