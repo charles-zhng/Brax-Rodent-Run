@@ -30,16 +30,15 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.95"
 
 FLAGS = flags.FLAGS
 
-n_gpus = jax.device_count(backend="gpu")
-print(f"Using {n_gpus} GPUs")
-
-os.environ["XLA_FLAGS"] = (
-    "--xla_gpu_enable_triton_softmax_fusion=true "
-    "--xla_gpu_triton_gemm_any=True "
-    # "--xla_gpu_enable_async_collectives=true "
-    # "--xla_gpu_enable_latency_hiding_scheduler=true "
-    # "--xla_gpu_enable_highest_priority_async_stream=true "
-)
+try:
+    n_devices = jax.device_count(backend="gpu")
+    os.environ["XLA_FLAGS"] = (
+        "--xla_gpu_enable_triton_softmax_fusion=true " "--xla_gpu_triton_gemm_any=True "
+    )
+    print(f"Using {n_devices} GPUs")
+except:
+    n_devices = 1
+    print("Not using GPUs")
 
 flags.DEFINE_enum("solver", "cg", ["cg", "newton"], "constraint solver")
 flags.DEFINE_integer("iterations", 4, "number of solver iterations")
@@ -49,12 +48,12 @@ config = {
     "env_name": "rodent",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 4096 * n_gpus,
+    "num_envs": 128 * n_devices,
     "num_timesteps": 5_000_000_000,
     "eval_every": 100_000_000,
     "episode_length": 200,
-    "batch_size": 4096 * n_gpus,
-    "num_minibatches": 4 * n_gpus,
+    "batch_size": 128 * n_devices,
+    "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 8,
     "learning_rate": 7e-5,
     "clipping_epsilon": 0.2,
@@ -105,7 +104,7 @@ else:
 env_name = config["env_name"]
 env = envs.get_environment(
     env_name,
-    reference_clip,
+    reference_clip=reference_clip,
     torque_actuators=config["torque_actuators"],
     solver=config["solver"],
     iterations=config["iterations"],

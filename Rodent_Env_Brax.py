@@ -231,23 +231,24 @@ class RodentTracking(PipelineEnv):
             "joint_distance": 0.0,
         }
 
-        reference_clip = jax.tree_map(
-            lambda x: x[info["start_frame"]], self._get_reference_clip(info)
-        )
+        return self.reset_from_clip(rng, info)
 
-        return self.reset_from_clip(rng, reference_clip, info)
-
-    def reset_from_clip(self, rng, reference_clip, info) -> State:
+    def reset_from_clip(self, rng, info) -> State:
         """Reset based on a reference clip."""
         _, rng1, rng2 = jax.random.split(rng, 3)
+
+        # Get reference clip and select the start frame
+        reference_frame = jax.tree_map(
+            lambda x: x[info["cur_frame"]], self._get_reference_clip(info)
+        )
 
         low, hi = -self._reset_noise_scale, self._reset_noise_scale
 
         # Add pos
-        qpos_with_pos = jp.array(self.sys.qpos0).at[:3].set(reference_clip.position)
+        qpos_with_pos = jp.array(self.sys.qpos0).at[:3].set(reference_frame.position)
 
         # Add quat
-        new_qpos = qpos_with_pos.at[3:7].set(reference_clip.quaternion)
+        new_qpos = qpos_with_pos.at[3:7].set(reference_frame.quaternion)
 
         # Add noise
         qpos = new_qpos + jax.random.uniform(
@@ -453,7 +454,7 @@ class RodentTracking(PipelineEnv):
 class RodentMultiClipTracking(RodentTracking):
     def __init__(
         self,
-        reference_clips,
+        reference_clip,
         torque_actuators: bool = False,
         ref_len: int = 5,
         too_far_dist=0.1,
@@ -497,8 +498,8 @@ class RodentMultiClipTracking(RodentTracking):
             **kwargs,
         )
 
-        self._reference_clips = reference_clips
-        self._n_clips = reference_clips.position.shape[0]
+        self._reference_clips = reference_clip
+        self._n_clips = reference_clip.position.shape[0]
 
     def reset(self, rng) -> State:
         """Resets the environment to an initial state."""
@@ -515,12 +516,7 @@ class RodentMultiClipTracking(RodentTracking):
             "joint_distance": 0.0,
         }
 
-        # Get reference clip and select the start frame
-        reference_clip = jax.tree_map(
-            lambda x: x[info["start_frame"]], self._get_reference_clip(info)
-        )
-
-        return self.reset_from_clip(rng, reference_clip, info)
+        return self.reset_from_clip(rng, info)
 
     def _get_reference_clip(self, info) -> ReferenceClip:
         """Gets clip based on info["clip_idx"]"""
