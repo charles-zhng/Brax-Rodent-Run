@@ -325,7 +325,7 @@ class RodentTracking(PipelineEnv):
         )
 
         endeff_reward = self._endeff_reward_weight * jp.exp(
-            -2500
+            -500
             * jp.sum(
                 (
                     data.xpos[self._endeff_idxs]

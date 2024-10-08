@@ -48,12 +48,12 @@ config = {
     "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 128 * n_devices,
+    "num_envs": 4096 * n_devices,
     "num_timesteps": 5_000_000_000,
-    "eval_every": 10_000,
-    "reset_every": 5_000,
+    "eval_every": 50_000_000,
+    "reset_every": 10_000_000,
     "episode_length": 200,
-    "batch_size": 128 * n_devices,
+    "batch_size": 4096 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 8,
     "learning_rate": 7e-5,
@@ -189,11 +189,11 @@ jit_step = jax.jit(rollout_env.step)
 rollout_key = jax.random.key(0)
 
 
-def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
+def policy_params_fn(num_steps, make_policy, params, model_path=model_path, rollout_key=rollout_key):
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
-    rollout_key, reset_rng, act_rng = jax.random.split(rollout_key, 4)
+    rollout_key, reset_rng, act_rng = jax.random.split(rollout_key, 3)
 
     state = jit_reset(reset_rng)
 
