@@ -186,10 +186,10 @@ rollout_env = custom_wrappers.RenderRolloutWrapperTracking(env)
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
 
-rollout_key = jax.random.key(0)
 
+def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
+    rollout_key = jax.random.key(0)
 
-def policy_params_fn(num_steps, make_policy, params, model_path=model_path, rollout_key=rollout_key):
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
