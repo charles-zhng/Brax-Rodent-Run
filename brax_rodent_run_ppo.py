@@ -13,7 +13,7 @@ import custom_ppo as ppo
 import custom_wrappers
 from brax.io import model
 import numpy as np
-from Rodent_Env_Brax import Rodent
+from Rodent_Env_Brax import RodentTracking
 import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
@@ -58,7 +58,7 @@ config = {
     "num_updates_per_batch": 8,
     "learning_rate": 7e-5,
     "clipping_epsilon": 0.2,
-    "torque_actuators": True,
+    "torque_actuators": False,
     "physics_steps_per_control_step": 5,
     "too_far_dist": 0.01,
     "bad_pose_dist": 20,
@@ -70,18 +70,16 @@ config = {
     "angvel_reward_weight": 0.0,
     "bodypos_reward_weight": 0.0,
     "endeff_reward_weight": 1.0,
-    "healthy_reward": 0.25,
     "healthy_z_range": (0.0325, 0.5),
-    "terminate_when_unhealthy": True,
     "run_platform": "Harvard",
     "solver": "cg",
     "iterations": 4,
     "ls_iterations": 4,
 }
 
-envs.register_environment("rodent", Rodent)
+envs.register_environment("rodent", RodentTracking)
 
-clip_id = 222  # 84 is the walking in half circle one
+clip_id = 84  # 84 is the walking in half circle one
 reference_path = f"clips/{clip_id}.p"
 
 if not os.path.exists(reference_path):
@@ -109,7 +107,6 @@ env = envs.get_environment(
     env_name,
     reference_clip,
     torque_actuators=config["torque_actuators"],
-    terminate_when_unhealthy=config["terminate_when_unhealthy"],
     solver=config["solver"],
     iterations=config["iterations"],
     ls_iterations=config["ls_iterations"],
@@ -123,7 +120,6 @@ env = envs.get_environment(
     angvel_reward_weight=config["angvel_reward_weight"],
     bodypos_reward_weight=config["bodypos_reward_weight"],
     endeff_reward_weight=config["endeff_reward_weight"],
-    healthy_reward=config["healthy_reward"],
     healthy_z_range=config["healthy_z_range"],
     physics_steps_per_control_step=config["physics_steps_per_control_step"],
 )
