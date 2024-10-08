@@ -13,7 +13,7 @@ import custom_ppo as ppo
 import custom_wrappers
 from brax.io import model
 import numpy as np
-from Rodent_Env_Brax import RodentTracking
+from Rodent_Env_Brax import RodentMultiClipTracking, RodentTracking
 import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
@@ -45,12 +45,12 @@ flags.DEFINE_integer("iterations", 4, "number of solver iterations")
 flags.DEFINE_integer("ls_iterations", 4, "number of linesearch iterations")
 
 config = {
-    "env_name": "rodent",
+    "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 128 * n_devices,
     "num_timesteps": 5_000_000_000,
-    "eval_every": 100_000_000,
+    "eval_every": 10_000,
     "episode_length": 200,
     "batch_size": 128 * n_devices,
     "num_minibatches": 4 * n_devices,
@@ -76,34 +76,39 @@ config = {
     "ls_iterations": 4,
 }
 
-envs.register_environment("rodent", RodentTracking)
+envs.register_environment("single clip", RodentTracking)
+envs.register_environment("multi clip", RodentMultiClipTracking)
 
-clip_id = 84  # 84 is the walking in half circle one
-reference_path = f"clips/{clip_id}.p"
 
-if not os.path.exists(reference_path):
-    os.makedirs(os.path.dirname(reference_path), exist_ok=True)
+# clip_id = 84  # 84 is the walking in half circle one
+# reference_path = f"clips/{clip_id}.p"
 
-    # Process rodent clip and save as pickle
-    reference_clip = process_clip_to_train(
-        stac_path="./transform_snips_new.p",
-        start_step=clip_id * 250,
-        clip_length=250,
-        mjcf_path="./models/rodent_new.xml",
-    )
-    with open(reference_path, "wb") as file:
-        # Use pickle.dump() to save the data to the file
-        pickle.dump(reference_clip, file)
-else:
-    with open(reference_path, "rb") as file:
-        # Use pickle.load() to load the data from the file
-        reference_clip = pickle.load(file)
+# if not os.path.exists(reference_path):
+#     os.makedirs(os.path.dirname(reference_path), exist_ok=True)
 
+#     # Process rodent clip and save as pickle
+#     reference_clip = process_clip_to_train(
+#         stac_path="./transform_snips_new.p",
+#         start_step=clip_id * 250,
+#         clip_length=250,
+#         mjcf_path="./models/rodent_new.xml",
+#     )
+#     with open(reference_path, "wb") as file:
+#         # Use pickle.dump() to save the data to the file
+#         pickle.dump(reference_clip, file)
+# else:
+#     with open(reference_path, "rb") as file:
+#         # Use pickle.load() to load the data from the file
+#         reference_clip = pickle.load(file)
+
+clip_id = -1
+with open("./clips/all_snips.p", "rb") as file:
+    # Use pickle.load() to load the data from the file
+    reference_clip = pickle.load(file)
 
 # instantiate the environment
-env_name = config["env_name"]
 env = envs.get_environment(
-    env_name,
+    config["env_name"],
     reference_clip=reference_clip,
     torque_actuators=config["torque_actuators"],
     solver=config["solver"],
@@ -358,16 +363,17 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
     os.environ["MUJOCO_GL"] = "osmesa"
     qposes_rollout = np.array([state.pipeline_state.qpos for state in rollout])
 
-    def f(x):
-        if len(x.shape) != 1:
-            return jax.lax.dynamic_slice_in_dim(
-                x,
-                0,
-                250,
-            )
-        return jp.array([])
+    # def f(x):
+    #     if len(x.shape) != 1:
+    #         return jax.lax.dynamic_slice_in_dim(
+    #             x,
+    #             0,
+    #             250,
+    #         )
+    #     return jp.array([])
 
-    ref_traj = jax.tree_util.tree_map(f, reference_clip)
+    # ref_traj = jax.tree_util.tree_map(f, reference_clip)
+    ref_traj = rollout_env._get_reference_clip(rollout[0].info)
     qposes_ref = np.repeat(
         np.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints]),
         env._steps_for_cur_frame,
