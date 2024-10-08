@@ -51,6 +51,7 @@ config = {
     "num_envs": 128 * n_devices,
     "num_timesteps": 5_000_000_000,
     "eval_every": 10_000,
+    "reset_every": 5_000,
     "episode_length": 200,
     "batch_size": 128 * n_devices,
     "num_minibatches": 4 * n_devices,
@@ -137,6 +138,7 @@ train_fn = functools.partial(
     ppo.train,
     num_timesteps=config["num_timesteps"],
     num_evals=int(config["num_timesteps"] / config["eval_every"]),
+    num_resets_per_eval=int(config["eval_every"] / config["reset_every"]),
     reward_scaling=1,
     episode_length=episode_length,
     normalize_observations=True,
@@ -184,14 +186,14 @@ rollout_env = custom_wrappers.RenderRolloutWrapperTracking(env)
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
 
+rollout_key = jax.random.key(0)
+
 
 def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
-    policy_params_key = jax.random.key(0)
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
-    _, policy_params_key = jax.random.split(policy_params_key)
-    reset_rng, act_rng = jax.random.split(policy_params_key)
+    rollout_key, reset_rng, act_rng = jax.random.split(rollout_key, 4)
 
     state = jit_reset(reset_rng)
 
