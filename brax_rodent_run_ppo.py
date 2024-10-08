@@ -107,11 +107,7 @@ else:
 env_name = config["env_name"]
 env = envs.get_environment(
     env_name,
-    track_pos=reference_clip.position,
-    track_quat=reference_clip.quaternion,
-    track_joint=reference_clip.joints,
-    track_angvel=reference_clip.angular_velocity,
-    track_bodypos=reference_clip.body_positions,
+    reference_clip,
     torque_actuators=config["torque_actuators"],
     terminate_when_unhealthy=config["terminate_when_unhealthy"],
     solver=config["solver"],
@@ -257,7 +253,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
         },
         commit=False,
     )
-    
+
     angvel_rewards = [state.metrics["angvel_reward"] for state in rollout]
     table = wandb.Table(
         data=[[x, y] for (x, y) in zip(range(len(angvel_rewards)), angvel_rewards)],
@@ -409,11 +405,11 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     root = mjcf_dm.from_path(f"./models/rodent_ghostpair_scale080.xml")
     rescale.rescale_subtree(
-            root,
-            .9 / .8,
-            .9 / .8,
+        root,
+        0.9 / 0.8,
+        0.9 / 0.8,
     )
-    
+
     mj_model = mjcf_dm.Physics.from_mjcf_model(root).model.ptr
     mj_model.opt.solver = {
         "cg": mujoco.mjtSolver.mjSOL_CG,
