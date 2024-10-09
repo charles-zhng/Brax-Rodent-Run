@@ -30,8 +30,12 @@ from brax.training import pmap
 from brax.training import types
 from brax.training.acme import running_statistics
 from brax.training.acme import specs
-from brax.training.agents.ppo import losses as ppo_losses
-from brax.training.agents.ppo import networks as ppo_networks
+
+# from brax.training.agents.ppo import losses as ppo_losses
+import custom_losses as ppo_losses
+
+# from brax.training.agents.ppo import networks as ppo_networks
+import custom_ppo_networks
 from brax.training.types import Params
 from brax.training.types import PRNGKey
 from brax.v1 import envs as envs_v1
@@ -98,8 +102,8 @@ def train(
     gae_lambda: float = 0.95,
     deterministic_eval: bool = False,
     network_factory: types.NetworkFactory[
-        ppo_networks.PPONetworks
-    ] = ppo_networks.make_ppo_networks,
+        custom_ppo_networks.PPONetworks
+    ] = custom_ppo_networks.make_intention_ppo_networks,
     progress_fn: Callable[[int, Metrics], None] = lambda *args: None,
     normalize_advantage: bool = True,
     eval_env: Optional[envs.Env] = None,
@@ -236,9 +240,12 @@ def train(
     if normalize_observations:
         normalize = running_statistics.normalize
     ppo_network = network_factory(
-        env_state.obs.shape[-1], env.action_size, preprocess_observations_fn=normalize
+        env_state.obs.shape[-1],
+        env_state.info["reference_obs_size"],
+        env.action_size,
+        preprocess_observations_fn=normalize,
     )
-    make_policy = ppo_networks.make_inference_fn(ppo_network)
+    make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
     optimizer = optax.adam(learning_rate=learning_rate)
 

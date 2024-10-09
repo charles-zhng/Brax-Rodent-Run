@@ -18,7 +18,9 @@ import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
 from jax import numpy as jp
-from brax.training.agents.ppo import networks as ppo_networks
+
+# from brax.training.agents.ppo import networks as ppo_networks
+import custom_ppo_networks
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -51,7 +53,6 @@ config = {
     "num_envs": 4096 * n_devices,
     "num_timesteps": 5_000_000_000,
     "eval_every": 100_000_000,
-    "reset_every": 10_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_devices,
     "num_minibatches": 4 * n_devices,
@@ -138,7 +139,7 @@ train_fn = functools.partial(
     ppo.train,
     num_timesteps=config["num_timesteps"],
     num_evals=int(config["num_timesteps"] / config["eval_every"]),
-    num_resets_per_eval= 1, # int(config["eval_every"] / config["reset_every"]),
+    num_resets_per_eval=1,
     reward_scaling=1,
     episode_length=episode_length,
     normalize_observations=True,
@@ -154,9 +155,10 @@ train_fn = functools.partial(
     batch_size=config["batch_size"],
     seed=0,
     network_factory=functools.partial(
-        ppo_networks.make_ppo_networks,
-        policy_hidden_layer_sizes=(256, 256, 256),
-        value_hidden_layer_sizes=(256, 256, 256),
+        custom_ppo_networks.make_intention_ppo_networks,
+        encoder_hidden_layer_sizes=(1024, 1024),
+        decoder_hidden_layer_sizes=(1024, 1024),
+        value_hidden_layer_sizes=(1024, 1024),
     ),
 )
 
@@ -187,7 +189,9 @@ jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
 
 
-def policy_params_fn(num_steps, make_policy, params, rollout_key, model_path=model_path):
+def policy_params_fn(
+    num_steps, make_policy, params, rollout_key, model_path=model_path
+):
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))

@@ -258,7 +258,13 @@ class RodentTracking(PipelineEnv):
 
         data = self.pipeline_init(qpos, qvel)
 
-        obs = self._get_obs(data, info)
+        reference_obs, proprioceptive_obs = self._get_obs(data, info)
+
+        # Used to intialize our intention network
+        info["reference_obs_size"] = reference_obs.shape[-1]
+
+        obs = jp.concatenate([reference_obs, proprioceptive_obs])
+
         reward, done, zero = jp.zeros(3)
         metrics = {
             "pos_reward": zero,
@@ -348,7 +354,8 @@ class RodentTracking(PipelineEnv):
         bad_quat = jp.where(quat_distance > self._bad_quat_dist, 1.0, 0.0)
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
-        obs = self._get_obs(data, info)
+        reference_obs, proprioceptive_obs = self._get_obs(data, info)
+        obs = jp.concatenate([reference_obs, proprioceptive_obs])
         reward = (
             joint_reward
             + pos_reward
@@ -439,16 +446,22 @@ class RodentTracking(PipelineEnv):
             data.qpos[3:7],
         ).flatten()
 
-        return jp.concatenate(
+        reference_obs = jp.concatenate(
             [
-                data.qpos,
-                data.qvel,
                 track_pos_local,
                 quat_dist,
                 joint_dist,
                 body_pos_dist_local,
             ]
         )
+
+        prorioceptive_obs = jp.concatenate(
+            [
+                data.qpos,
+                data.qvel,
+            ]
+        )
+        return reference_obs, prorioceptive_obs
 
 
 class RodentMultiClipTracking(RodentTracking):
