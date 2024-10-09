@@ -47,9 +47,7 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
             key_sample: PRNGKey,
         ) -> Tuple[types.Action, types.Extra]:
             key_sample, key_network = jax.random.split(key_sample)
-            logits, latent_mean, latent_logvar = policy_network.apply(
-                *params, observations, key_network
-            )
+            logits, _, _ = policy_network.apply(*params, observations, key_network)
             # logits comes from policy directly, raw predictions that decoder generates (action, intention_mean, intention_logvar)
 
             if deterministic:
@@ -67,8 +65,8 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
                 raw_actions
             )
             return postprocessed_actions, {
-                "latent_mean": latent_mean,
-                "latent_logvar": latent_logvar,
+                # "latent_mean": latent_mean,
+                # "latent_logvar": latent_logvar,
                 "log_prob": log_prob,
                 "raw_action": raw_actions,
                 "logits": logits,

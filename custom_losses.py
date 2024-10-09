@@ -141,7 +141,9 @@ def compute_ppo_loss(
 
     # Put the time dimension first.
     data = jax.tree_util.tree_map(lambda x: jnp.swapaxes(x, 0, 1), data)
-    policy_logits = policy_apply(normalizer_params, params.policy, data.observation, policy_key)
+    policy_logits, latent_mean, latent_logvar = policy_apply(
+        normalizer_params, params.policy, data.observation, policy_key
+    )
 
     baseline = value_apply(normalizer_params, params.value, data.observation)
 
@@ -183,15 +185,12 @@ def compute_ppo_loss(
     v_loss = jnp.mean(v_error * v_error) * 0.5 * 0.5
 
     # Entropy reward
-    entropy = jnp.mean(parametric_action_distribution.entropy(policy_logits, entropy_key))
+    entropy = jnp.mean(
+        parametric_action_distribution.entropy(policy_logits, entropy_key)
+    )
     entropy_loss = entropy_cost * -entropy
 
     # KL Divergence for latent layer
-    latent_mean, latent_logvar = (
-        data.extras["policy_extras"]["latent_mean"],
-        data.extras["policy_extras"]["latent_logvar"],
-    )
-
     kl_latent_loss = kl_weight * (
         -0.5
         * jnp.mean(1 + latent_logvar - jnp.square(latent_mean) - jnp.exp(latent_logvar))
