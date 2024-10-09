@@ -50,13 +50,13 @@ config = {
     "task_name": "run",
     "num_envs": 4096 * n_devices,
     "num_timesteps": 5_000_000_000,
-    "eval_every": 50_000_000,
+    "eval_every": 100_000_000,
     "reset_every": 10_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 8,
-    "learning_rate": 7e-5,
+    "learning_rate": 1e-4,
     "clipping_epsilon": 0.2,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
@@ -138,7 +138,7 @@ train_fn = functools.partial(
     ppo.train,
     num_timesteps=config["num_timesteps"],
     num_evals=int(config["num_timesteps"] / config["eval_every"]),
-    num_resets_per_eval=int(config["eval_every"] / config["reset_every"]),
+    num_resets_per_eval= 1, # int(config["eval_every"] / config["reset_every"]),
     reward_scaling=1,
     episode_length=episode_length,
     normalize_observations=True,
@@ -187,9 +187,7 @@ jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)
 
 
-def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
-    rollout_key = jax.random.key(0)
-
+def policy_params_fn(num_steps, make_policy, params, rollout_key, model_path=model_path):
     os.makedirs(model_path, exist_ok=True)
     model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
@@ -376,6 +374,7 @@ def policy_params_fn(num_steps, make_policy, params, model_path=model_path):
 
     # ref_traj = jax.tree_util.tree_map(f, reference_clip)
     ref_traj = rollout_env._get_reference_clip(rollout[0].info)
+    print(f"clip_id:{rollout[0].info}")
     qposes_ref = np.repeat(
         np.hstack([ref_traj.position, ref_traj.quaternion, ref_traj.joints]),
         env._steps_for_cur_frame,

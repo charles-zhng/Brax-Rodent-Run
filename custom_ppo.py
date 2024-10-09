@@ -203,7 +203,7 @@ def train(
     local_key, key_env, eval_key = jax.random.split(local_key, 3)
     # key_networks should be global, so that networks are initialized the same
     # way for different processes.
-    key_policy, key_value = jax.random.split(global_key)
+    key_policy, key_value, policy_params_fn_key = jax.random.split(global_key, 3)
     del global_key
 
     assert num_envs % device_count == 0
@@ -480,7 +480,8 @@ def train(
             params = _unpmap(
                 (training_state.normalizer_params, training_state.params.policy)
             )
-            policy_params_fn(current_step, make_policy, params)
+            _, policy_params_fn_key = jax.random.split(policy_params_fn_key)
+            policy_params_fn(current_step, make_policy, params, policy_params_fn_key)
 
     total_steps = current_step
     assert total_steps >= num_timesteps

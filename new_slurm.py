@@ -66,8 +66,8 @@ def main():
                         help='Number of GPUs to request (default: 2)')
     parser.add_argument('--job_name', type=str, default='rodent',
                         help='Name of the SLURM job (default: rodent)')
-    parser.add_argument('--mem', type=int, default=16000,
-                        help='Memory in MB (default: 16000)')
+    parser.add_argument('--mem', type=int, default=32000,
+                        help='Memory in MB (default: 32000)')
     parser.add_argument('--cpus', type=int, default=4,
                         help='Number of CPU cores (default: 4)')
     parser.add_argument('--time', type=str, default='0-8:00',
