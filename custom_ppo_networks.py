@@ -99,7 +99,6 @@ def make_intention_ppo_networks(
         latent_size=intention_latent_size,
         total_obs_size=observation_size,
         reference_obs_size=reference_obs_size,
-        obs_size=observation_size,
         preprocess_observations_fn=preprocess_observations_fn,
         encoder_hidden_layer_sizes=encoder_hidden_layer_sizes,
         decoder_hidden_layer_sizes=decoder_hidden_layer_sizes,

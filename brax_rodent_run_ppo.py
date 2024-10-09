@@ -156,9 +156,9 @@ train_fn = functools.partial(
     seed=0,
     network_factory=functools.partial(
         custom_ppo_networks.make_intention_ppo_networks,
-        encoder_hidden_layer_sizes=(1024, 1024),
-        decoder_hidden_layer_sizes=(1024, 1024),
-        value_hidden_layer_sizes=(1024, 1024),
+        encoder_hidden_layer_sizes=(256, 256),
+        decoder_hidden_layer_sizes=(256, 256),
+        value_hidden_layer_sizes=(256, 256),
     ),
 )
 

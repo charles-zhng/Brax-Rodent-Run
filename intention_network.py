@@ -86,13 +86,12 @@ class IntentionNetwork(nn.Module):
         self.encoder = Encoder(layer_sizes=self.encoder_layers, latents=self.latents)
         self.decoder = Decoder(layer_sizes=self.decoder_layers)
 
-    def __call__(self, total_obs, key):
+    def __call__(self, obs, key):
         _, encoder_rng = jax.random.split(key)
-        traj = total_obs[: self.reference_obs_size]
-        obs = total_obs[self.reference_obs_size :]
+        traj = obs[..., :self.reference_obs_size]
         latent_mean, latent_logvar = self.encoder(traj)
         z = reparameterize(encoder_rng, latent_mean, latent_logvar)
-        action = self.decoder(jnp.concatenate([z, obs], axis=-1))
+        action = self.decoder(jnp.concatenate([z, obs[..., self.reference_obs_size:]], axis=-1))
 
         return action, latent_mean, latent_logvar
 

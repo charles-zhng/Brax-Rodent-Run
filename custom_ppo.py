@@ -241,7 +241,7 @@ def train(
         normalize = running_statistics.normalize
     ppo_network = network_factory(
         env_state.obs.shape[-1],
-        env_state.info["reference_obs_size"],
+        int(_unpmap(env_state.info["reference_obs_size"])[0]),
         env.action_size,
         preprocess_observations_fn=normalize,
     )
