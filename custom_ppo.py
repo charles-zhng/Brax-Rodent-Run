@@ -102,7 +102,7 @@ def train(
     gae_lambda: float = 0.95,
     deterministic_eval: bool = False,
     network_factory: types.NetworkFactory[
-        custom_ppo_networks.PPONetworks
+        custom_ppo_networks.PPOImitationNetworks
     ] = custom_ppo_networks.make_intention_ppo_networks,
     progress_fn: Callable[[int, Metrics], None] = lambda *args: None,
     normalize_advantage: bool = True,

@@ -27,7 +27,7 @@ import intention_network
 
 @flax.struct.dataclass
 class PPOImitationNetworks:
-    policy_network: networks.FeedForwardNetwork
+    policy_network: intention_network.IntentionNetwork
     value_network: networks.FeedForwardNetwork
     parametric_action_distribution: distribution.ParametricDistribution
 
