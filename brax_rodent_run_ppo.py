@@ -29,6 +29,7 @@ from absl import app
 from absl import flags
 
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.95"
+os.environ["MUJOCO_GL"] = "egl"
 
 FLAGS = flags.FLAGS
 
@@ -51,14 +52,14 @@ config = {
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 4096 * n_devices,
-    "num_timesteps": 5_000_000_000,
-    "eval_every": 100_000_000,
+    "num_timesteps": 20_000_000_000,
+    "eval_every": 200_000_000,
     "episode_length": 200,
     "batch_size": 4096 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 8,
-    "learning_rate": 1e-4,
-    "kl_weight": 1e-3,
+    "learning_rate": 3e-4,
+    "kl_weight": 1e-2,
     "clipping_epsilon": 0.2,
     "torque_actuators": False,
     "physics_steps_per_control_step": 5,
@@ -158,9 +159,9 @@ train_fn = functools.partial(
     seed=0,
     network_factory=functools.partial(
         custom_ppo_networks.make_intention_ppo_networks,
-        encoder_hidden_layer_sizes=(256, 256),
-        decoder_hidden_layer_sizes=(256, 256),
-        value_hidden_layer_sizes=(256, 256),
+        encoder_hidden_layer_sizes=(512, 512),
+        decoder_hidden_layer_sizes=(512, 512),
+        value_hidden_layer_sizes=(512, 512),
     ),
 )
 
@@ -428,7 +429,6 @@ def policy_params_fn(
     mj_data = mujoco.MjData(mj_model)
 
     # save rendering and log to wandb
-    os.environ["MUJOCO_GL"] = "osmesa"
     mujoco.mj_kinematics(mj_model, mj_data)
     renderer = mujoco.Renderer(mj_model, height=512, width=512)
 
