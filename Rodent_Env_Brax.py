@@ -481,6 +481,7 @@ class RodentMultiClipTracking(RodentTracking):
         bad_pose_dist=jp.inf,
         bad_quat_dist=jp.inf,
         ctrl_cost_weight=0.01,
+        ctrl_diff_cost_weight=0.01,
         pos_reward_weight=1,
         quat_reward_weight=1,
         joint_reward_weight=1,
@@ -503,6 +504,7 @@ class RodentMultiClipTracking(RodentTracking):
             bad_pose_dist,
             bad_quat_dist,
             ctrl_cost_weight,
+            ctrl_diff_cost_weight,
             pos_reward_weight,
             quat_reward_weight,
             joint_reward_weight,
@@ -534,7 +536,7 @@ class RodentMultiClipTracking(RodentTracking):
             "summed_pos_distance": 0.0,
             "quat_distance": 0.0,
             "joint_distance": 0.0,
-            "prev_action": jp.zeros((self.sys.nu,)),
+            "prev_ctrl": jp.zeros((self.sys.nu,)),
         }
 
         return self.reset_from_clip(rng, info)
