@@ -16,7 +16,7 @@
       <geom contype="0" conaffinity="0" group="0" rgba="0.5 0.5 0.5 1" density="1100.0"/>
     </default>
     <default class="no_collision">
-      <geom contype="0" conaffinity="0" condim="3" group="2"/>
+      <geom type="capsule" contype="0" conaffinity="0" condim="3" group="2"/>
     </default>
     <default class="collision">
       <geom condim="1" group="2"/>

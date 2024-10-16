@@ -432,7 +432,6 @@ def policy_params_fn(
     mujoco.mj_kinematics(mj_model, mj_data)
     renderer = mujoco.Renderer(mj_model, height=512, width=512)
 
-    frames = []
     # render while stepping using mujoco
     video_path = f"{model_path}/{num_steps}.mp4"
 
@@ -443,7 +442,6 @@ def policy_params_fn(
             renderer.update_scene(mj_data, camera=f"close_profile")
             pixels = renderer.render()
             video.append_data(pixels)
-            frames.append(pixels)
 
     wandb.log({"eval/rollout": wandb.Video(video_path, format="mp4")})
 
