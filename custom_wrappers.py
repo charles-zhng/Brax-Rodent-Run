@@ -90,6 +90,7 @@ class RenderRolloutWrapperTracking(Wrapper):
             "summed_pos_distance": 0.0,
             "quat_distance": 0.0,
             "joint_distance": 0.0,
+            "prev_action": jp.zeros((self.sys.nu,)),
         }
 
         return self.reset_from_clip(rng, info)
@@ -105,6 +106,7 @@ class AutoResetWrapperTracking(Wrapper):
         state.info["first_obs"] = state.obs
         state.info["first_cur_frame"] = state.info["cur_frame"]
         state.info["first_steps_taken_cur_frame"] = state.info["steps_taken_cur_frame"]
+        state.info["first_prev_action"] = state.info["prev_action"]
         return state
 
     def step(self, state: State, action: jax.Array) -> State:
@@ -133,7 +135,30 @@ class AutoResetWrapperTracking(Wrapper):
             state.info["first_steps_taken_cur_frame"],
             state.info["steps_taken_cur_frame"],
         )
+        state.info["prev_action"] = where_done(
+            state.info["first_prev_action"],
+            state.info["prev_action"],
+        )
         return state.replace(pipeline_state=pipeline_state, obs=obs)
+
+
+class EvalClipWrapperTracking(Wrapper):
+    """Always resets to 0, at a specific clip"""
+
+    def reset(self, rng: jax.Array, clip_idx=0) -> State:
+        _, rng = jax.random.split(rng)
+
+        info = {
+            "clip_idx": clip_idx,
+            "cur_frame": 0,
+            "steps_taken_cur_frame": 0,
+            "summed_pos_distance": 0.0,
+            "quat_distance": 0.0,
+            "joint_distance": 0.0,
+            "prev_action": jp.zeros((self.sys.nu,)),
+        }
+
+        return self.reset_from_clip(rng, info)
 
 
 # Single clip

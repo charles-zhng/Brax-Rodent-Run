@@ -119,6 +119,7 @@ class RodentTracking(PipelineEnv):
         bad_pose_dist=jp.inf,
         bad_quat_dist=jp.inf,
         ctrl_cost_weight=0.01,
+        ctrl_diff_cost_weight=0.01,
         pos_reward_weight=1.0,
         quat_reward_weight=1.0,
         joint_reward_weight=1.0,
@@ -214,6 +215,7 @@ class RodentTracking(PipelineEnv):
         self._bodypos_reward_weight = bodypos_reward_weight
         self._endeff_reward_weight = endeff_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
+        self._ctrl_diff_cost_weight = ctrl_diff_cost_weight
         self._healthy_z_range = healthy_z_range
         self._reset_noise_scale = reset_noise_scale
 
@@ -229,6 +231,7 @@ class RodentTracking(PipelineEnv):
             "summed_pos_distance": 0.0,
             "quat_distance": 0.0,
             "joint_distance": 0.0,
+            "prev_ctrl": jp.zeros((self.sys.nv,)),
         }
 
         return self.reset_from_clip(rng, info)
@@ -353,7 +356,10 @@ class RodentTracking(PipelineEnv):
         bad_pose = jp.where(joint_distance > self._bad_pose_dist, 1.0, 0.0)
         bad_quat = jp.where(quat_distance > self._bad_quat_dist, 1.0, 0.0)
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
-
+        ctrl_diff_cost = self._ctrl_diff_cost_weight * jp.sum(
+            jp.square(info["prev_ctrl"] - action)
+        )
+        info["prev_ctrl"] = action
         reference_obs, proprioceptive_obs = self._get_obs(data, info)
         obs = jp.concatenate([reference_obs, proprioceptive_obs])
         reward = (
@@ -364,6 +370,7 @@ class RodentTracking(PipelineEnv):
             + bodypos_reward
             + endeff_reward
             - ctrl_cost
+            - ctrl_diff_cost
         )
 
         # Raise done flag if terminating
@@ -527,6 +534,7 @@ class RodentMultiClipTracking(RodentTracking):
             "summed_pos_distance": 0.0,
             "quat_distance": 0.0,
             "joint_distance": 0.0,
+            "prev_action": jp.zeros((self.sys.nu,)),
         }
 
         return self.reset_from_clip(rng, info)
