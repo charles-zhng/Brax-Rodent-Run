@@ -17,7 +17,7 @@ import os
 
 from preprocessing.mjx_preprocess import ReferenceClip
 
-_XML_PATH = "./models/rodent_new.xml"
+_XML_PATH = "./models/rodent.xml"
 _MOCAP_HZ = 50
 _JOINT_NAMES = [
     "vertebra_1_extend",
@@ -277,6 +277,7 @@ class RodentTracking(PipelineEnv):
             "bodypos_reward": zero,
             "endeff_reward": zero,
             "reward_ctrlcost": zero,
+            "ctrl_diff_cost": zero,
             "too_far": zero,
             "bad_pose": zero,
             "bad_quat": zero,
@@ -395,6 +396,7 @@ class RodentTracking(PipelineEnv):
             bodypos_reward=bodypos_reward,
             endeff_reward=endeff_reward,
             reward_ctrlcost=-ctrl_cost,
+            ctrl_diff_cost=ctrl_diff_cost,
             too_far=too_far,
             bad_pose=bad_pose,
             bad_quat=bad_quat,
