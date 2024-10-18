@@ -234,9 +234,9 @@ class RodentTracking(PipelineEnv):
             "prev_ctrl": jp.zeros((self.sys.nv,)),
         }
 
-        return self.reset_from_clip(rng, info)
+        return self.reset_from_clip(rng, info, noise=True)
 
-    def reset_from_clip(self, rng, info) -> State:
+    def reset_from_clip(self, rng, info, noise=True) -> State:
         """Reset based on a reference clip."""
         _, rng1, rng2 = jax.random.split(rng, 3)
 
@@ -254,10 +254,17 @@ class RodentTracking(PipelineEnv):
         new_qpos = qpos_with_pos.at[3:7].set(reference_frame.quaternion)
 
         # Add noise
-        qpos = new_qpos + jax.random.uniform(
-            rng1, (self.sys.nq,), minval=low, maxval=hi
+        qpos = new_qpos + jp.where(
+            noise,
+            jax.random.uniform(rng1, (self.sys.nq,), minval=low, maxval=hi),
+            jp.zeros((self.sys.nq,)),
         )
-        qvel = jax.random.uniform(rng2, (self.sys.nv,), minval=low, maxval=hi)
+
+        qvel = jp.where(
+            noise,
+            jax.random.uniform(rng1, (self.sys.nv,), minval=low, maxval=hi),
+            jp.zeros((self.sys.nv,)),
+        )
 
         data = self.pipeline_init(qpos, qvel)
 
@@ -541,7 +548,7 @@ class RodentMultiClipTracking(RodentTracking):
             "prev_ctrl": jp.zeros((self.sys.nu,)),
         }
 
-        return self.reset_from_clip(rng, info)
+        return self.reset_from_clip(rng, info, noise=True)
 
     def _get_reference_clip(self, info) -> ReferenceClip:
         """Gets clip based on info["clip_idx"]"""
