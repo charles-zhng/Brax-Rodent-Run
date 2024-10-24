@@ -7,7 +7,7 @@
         <global offwidth="1920" offheight="1200" elevation="-20" azimuth="120"/>
       </visual>
   <default>
-    <joint limited="true" solreflimit="0.01 1" solimplimit="0.9 0.99 0.003" armature="6e-07" damping="0.001"/>
+    <joint limited="true" solreflimit="0.01 1" solimplimit="0.9 0.99 0.002" armature="6e-07" damping="0.001"/>
     <geom friction="0.7 0.005 0.0001" solref="0.005 1"/>
     <site group="3" rgba="0 0 1 1"/>
     <general ctrllimited="true" ctrlrange="-1 1" forcelimited="false" gainprm="0.01"/>
