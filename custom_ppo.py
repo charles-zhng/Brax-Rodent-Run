@@ -238,7 +238,18 @@ def train(
     key_envs = jnp.reshape(key_envs, (local_devices_to_use, -1) + key_envs.shape[1:])
     env_state = reset_fn(key_envs)
 
-    # Loading from checkpoint (hardcoded for now)
+    normalize = lambda x, y: x
+    if normalize_observations:
+        normalize = running_statistics.normalize
+
+    ppo_network = network_factory(
+        env_state.obs.shape[-1],
+        int(_unpmap(env_state.info["reference_obs_size"])[0]),
+        env.action_size,
+        preprocess_observations_fn=normalize,
+    )
+
+    # Loading from and freezing decoder (checkpoint path hardcoded for now)
     if checkpoint_and_freeze:
         from brax.io import model
 
@@ -266,17 +277,18 @@ def train(
             return make_policy
 
         make_policy = make_inference_fn(
-            observation_size=env.observation_size,
-            reference_obs_size=state.info["reference_obs_size"][..., -1],
-            action_size=env.action_size,
+            env_state.obs.shape[-1],
+            int(_unpmap(env_state.info["reference_obs_size"])[0]),
+            env.action_size,
             normalize_observations=True,
         )
 
         model_path = (
             "./model_checkpoints/58683329-0cf5-42dd-8fe0-66dc839898da/814743552"
         )
-        init_params = model.load_params(model_path)
-
+        params = model.load_params(model_path)
+        init_policy = params[1]
+        normalizer_params = params[0]
         mask = {"params": {"encoder": "encoder", "decoder": "decoder"}}
         value = {"params": "encoder"}
         freeze_decoder = ppo_losses.PPONetworkParams(mask, value)
@@ -290,15 +302,6 @@ def train(
         )
         logging.info("Freezing decoder")
     else:
-        normalize = lambda x, y: x
-        if normalize_observations:
-            normalize = running_statistics.normalize
-        ppo_network = network_factory(
-            env_state.obs.shape[-1],
-            int(_unpmap(env_state.info["reference_obs_size"])[0]),
-            env.action_size,
-            preprocess_observations_fn=normalize,
-        )
         make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
         optimizer = optax.adam(learning_rate=learning_rate)
 
@@ -459,19 +462,22 @@ def train(
 
     # Checkpoint instead
     if not checkpoint_and_freeze:
-        init_params = ppo_losses.PPONetworkParams(
-            policy=ppo_network.policy_network.init(key_policy),
-            value=ppo_network.value_network.init(key_value),
+        init_policy = (ppo_network.policy_network.init(key_policy),)
+
+        normalizer_params = running_statistics.init_state(
+            specs.Array(env_state.obs.shape[-1:], jnp.dtype("float32"))
         )
 
+    init_params = ppo_losses.PPONetworkParams(
+        policy=init_policy,
+        value=ppo_network.value_network.init(key_value),
+    )
     training_state = TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
         optimizer_state=optimizer.init(
             init_params
         ),  # pytype: disable=wrong-arg-types  # numpy-scalars
         params=init_params,
-        normalizer_params=running_statistics.init_state(
-            specs.Array(env_state.obs.shape[-1:], jnp.dtype("float32"))
-        ),
+        normalizer_params=normalizer_params,
         env_steps=0,
     )
     training_state = jax.device_put_replicated(
