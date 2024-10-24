@@ -107,7 +107,7 @@ envs.register_environment("multi clip", RodentMultiClipTracking)
 #         reference_clip = pickle.load(file)
 
 clip_id = -1
-with open("./clips/all_snips.p", "rb") as file:
+with open("./clips/coltrane_21_07_28.p", "rb") as file:
     # Use pickle.load() to load the data from the file
     reference_clip = pickle.load(file)
 
@@ -165,6 +165,7 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(512, 512),
     ),
+    checkpoint_and_freeze=True,
 )
 
 import uuid

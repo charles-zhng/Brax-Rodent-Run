@@ -112,6 +112,7 @@ def train(
     randomization_fn: Optional[
         Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
     ] = None,
+    checkpoint_and_freeze: bool = False,
 ):
     """PPO training.
 
@@ -237,18 +238,69 @@ def train(
     key_envs = jnp.reshape(key_envs, (local_devices_to_use, -1) + key_envs.shape[1:])
     env_state = reset_fn(key_envs)
 
-    normalize = lambda x, y: x
-    if normalize_observations:
-        normalize = running_statistics.normalize
-    ppo_network = network_factory(
-        env_state.obs.shape[-1],
-        int(_unpmap(env_state.info["reference_obs_size"])[0]),
-        env.action_size,
-        preprocess_observations_fn=normalize,
-    )
-    make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
+    # Loading from checkpoint (hardcoded for now)
+    if checkpoint_and_freeze:
+        from brax.io import model
 
-    optimizer = optax.adam(learning_rate=learning_rate)
+        def make_inference_fn(
+            observation_size: int,
+            reference_obs_size: int,
+            action_size: int,
+            normalize_observations: bool = False,
+        ):
+            normalize = (
+                running_statistics.normalize
+                if normalize_observations
+                else lambda x, y: x
+            )
+            ppo_network = custom_ppo_networks.make_intention_ppo_networks(
+                observation_size,
+                reference_obs_size,
+                action_size,
+                preprocess_observations_fn=normalize,
+                encoder_hidden_layer_sizes=(512, 512),
+                decoder_hidden_layer_sizes=(512, 512),
+                value_hidden_layer_sizes=(512, 512),
+            )
+            make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
+            return make_policy
+
+        make_policy = make_inference_fn(
+            observation_size=env.observation_size,
+            reference_obs_size=state.info["reference_obs_size"][..., -1],
+            action_size=env.action_size,
+            normalize_observations=True,
+        )
+
+        model_path = (
+            "./model_checkpoints/58683329-0cf5-42dd-8fe0-66dc839898da/814743552"
+        )
+        init_params = model.load_params(model_path)
+
+        mask = {"params": {"encoder": "encoder", "decoder": "decoder"}}
+        value = {"params": "encoder"}
+        freeze_decoder = ppo_losses.PPONetworkParams(mask, value)
+
+        optimizer = optax.multi_transform(
+            {
+                "encoder": optax.adam(learning_rate=learning_rate),
+                "decoder": optax.set_to_zero(),
+            },
+            freeze_decoder,
+        )
+        logging.info("Freezing decoder")
+    else:
+        normalize = lambda x, y: x
+        if normalize_observations:
+            normalize = running_statistics.normalize
+        ppo_network = network_factory(
+            env_state.obs.shape[-1],
+            int(_unpmap(env_state.info["reference_obs_size"])[0]),
+            env.action_size,
+            preprocess_observations_fn=normalize,
+        )
+        make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
+        optimizer = optax.adam(learning_rate=learning_rate)
 
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
@@ -405,10 +457,13 @@ def train(
             metrics,
         )  # pytype: disable=bad-return-type  # py311-upgrade
 
-    init_params = ppo_losses.PPONetworkParams(
-        policy=ppo_network.policy_network.init(key_policy),
-        value=ppo_network.value_network.init(key_value),
-    )
+    # Checkpoint instead
+    if not checkpoint_and_freeze:
+        init_params = ppo_losses.PPONetworkParams(
+            policy=ppo_network.policy_network.init(key_policy),
+            value=ppo_network.value_network.init(key_value),
+        )
+
     training_state = TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
         optimizer_state=optimizer.init(
             init_params
