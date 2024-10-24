@@ -93,7 +93,7 @@ class RenderRolloutWrapperTracking(Wrapper):
             "prev_ctrl": jp.zeros((self.sys.nu,)),
         }
 
-        return self.reset_from_clip(rng, info)
+        return self.reset_from_clip(rng, info, noise=False)
 
 
 # Single clip
