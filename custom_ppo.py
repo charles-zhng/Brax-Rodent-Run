@@ -30,6 +30,7 @@ from brax.training import pmap
 from brax.training import types
 from brax.training.acme import running_statistics
 from brax.training.acme import specs
+import orbax.checkpoint
 
 # from brax.training.agents.ppo import losses as ppo_losses
 import custom_losses as ppo_losses
@@ -44,8 +45,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-
+import orbax
 import custom_wrappers
+from etils import epath
 
 
 InferenceParams = Tuple[running_statistics.NestedMeanStd, Params]
@@ -82,6 +84,7 @@ def train(
     environment: Union[envs_v1.Env, envs.Env],
     num_timesteps: int,
     episode_length: int,
+    checkpoint_manager: orbax.CheckpointManager,
     action_repeat: int = 1,
     num_envs: int = 1,
     max_devices_per_host: Optional[int] = None,
@@ -112,7 +115,8 @@ def train(
     randomization_fn: Optional[
         Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
     ] = None,
-    checkpoint_and_freeze: bool = False,
+    restore_checkpoint_path: Optional[str] = None,
+    freeze_mask=None,
 ):
     """PPO training.
 
@@ -249,60 +253,18 @@ def train(
         preprocess_observations_fn=normalize,
     )
 
-    # Loading from and freezing decoder (checkpoint path hardcoded for now)
-    if checkpoint_and_freeze:
-        from brax.io import model
+    make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
-        def make_inference_fn(
-            observation_size: int,
-            reference_obs_size: int,
-            action_size: int,
-            normalize_observations: bool = False,
-        ):
-            normalize = (
-                running_statistics.normalize
-                if normalize_observations
-                else lambda x, y: x
-            )
-            ppo_network = custom_ppo_networks.make_intention_ppo_networks(
-                observation_size,
-                reference_obs_size,
-                action_size,
-                preprocess_observations_fn=normalize,
-                encoder_hidden_layer_sizes=(512, 512),
-                decoder_hidden_layer_sizes=(512, 512),
-                value_hidden_layer_sizes=(512, 512),
-            )
-            make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
-            return make_policy
-
-        make_policy = make_inference_fn(
-            env_state.obs.shape[-1],
-            int(_unpmap(env_state.info["reference_obs_size"])[0]),
-            env.action_size,
-            normalize_observations=True,
-        )
-
-        model_path = (
-            "./model_checkpoints/58683329-0cf5-42dd-8fe0-66dc839898da/814743552"
-        )
-        params = model.load_params(model_path)
-        init_policy = params[1]
-        normalizer_params = params[0]
-        mask = {"params": {"encoder": "encoder", "decoder": "decoder"}}
-        value = {"params": "encoder"}
-        freeze_decoder = ppo_losses.PPONetworkParams(mask, value)
-
+    if freeze_mask is not None:
         optimizer = optax.multi_transform(
             {
                 "encoder": optax.adam(learning_rate=learning_rate),
                 "decoder": optax.set_to_zero(),
             },
-            freeze_decoder,
+            freeze_mask,
         )
-        logging.info("Freezing decoder")
+        logging.info("Freezing layers")
     else:
-        make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
         optimizer = optax.adam(learning_rate=learning_rate)
 
     loss_fn = functools.partial(
@@ -460,26 +422,60 @@ def train(
             metrics,
         )  # pytype: disable=bad-return-type  # py311-upgrade
 
-    # Checkpoint instead
-    if not checkpoint_and_freeze:
-        init_policy = (ppo_network.policy_network.init(key_policy),)
-
-        normalizer_params = running_statistics.init_state(
-            specs.Array(env_state.obs.shape[-1:], jnp.dtype("float32"))
-        )
-
     init_params = ppo_losses.PPONetworkParams(
-        policy=init_policy,
+        policy=ppo_network.policy_network.init(key_policy),
         value=ppo_network.value_network.init(key_value),
     )
+
     training_state = TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
         optimizer_state=optimizer.init(
             init_params
         ),  # pytype: disable=wrong-arg-types  # numpy-scalars
         params=init_params,
-        normalizer_params=normalizer_params,
+        normalizer_params=running_statistics.init_state(
+            specs.Array(env_state.obs.shape[-1:], jnp.dtype("float32"))
+        ),
         env_steps=0,
     )
+
+    # Load from checkpoint
+    if (
+        restore_checkpoint_path is not None
+        and epath.Path(restore_checkpoint_path).exists()
+    ):
+        logging.info("restoring from checkpoint %s", restore_checkpoint_path)
+        # env_steps = int(epath.Path(restore_checkpoint_path).stem)
+        orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+        target = training_state.normalizer_params, init_params, training_state.env_steps
+        (normalizer_params, load_params, env_steps) = orbax_checkpointer.restore(
+            restore_checkpoint_path,
+            item=target,
+            restore_args=flax.training.orbax_utils.restore_args_from_target(
+                target, mesh=None
+            ),
+        )
+        if freeze_mask is not None:
+            load_params.policy["params"]["encoder"] = init_params.policy["params"][
+                "encoder"
+            ]
+            init_params = init_params.replace(
+                policy=load_params.policy, value=load_params.value
+            )
+        else:
+            init_params = init_params.replace(
+                policy=load_params.policy, value=load_params.value
+            )
+        training_state = (
+            TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
+                optimizer_state=optimizer.init(
+                    init_params
+                ),  # pytype: disable=wrong-arg-types  # numpy-scalars
+                params=init_params,
+                normalizer_params=normalizer_params,
+                env_steps=env_steps,
+            )
+        )
+
     training_state = jax.device_put_replicated(
         training_state, jax.local_devices()[:local_devices_to_use]
     )
@@ -548,8 +544,16 @@ def train(
             logging.info(metrics)
             progress_fn(current_step, metrics)
             params = _unpmap(
-                (training_state.normalizer_params, training_state.params.policy)
+                (
+                    training_state.normalizer_params,
+                    training_state.params,
+                    training_state.env_steps,
+                )
             )
+            # Save checkpoint
+            save_args = flax.training.orbax_utils.save_args_from_target(params)
+            checkpoint_manager.save(it, params, save_kwargs={"save_args": save_args})
+
             _, policy_params_fn_key = jax.random.split(policy_params_fn_key)
             policy_params_fn(current_step, make_policy, params, policy_params_fn_key)
 

@@ -11,6 +11,8 @@ from dm_control.locomotion.walkers import rescale
 # from brax.training.agents.ppo import train as ppo
 import custom_ppo as ppo
 import custom_wrappers
+from custom_losses import PPONetworkParams
+
 from brax.io import model
 import numpy as np
 from Rodent_Env_Brax import RodentMultiClipTracking, RodentTracking
@@ -18,6 +20,7 @@ import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
 from jax import numpy as jp
+import orbax.checkpoint as ocp
 
 # from brax.training.agents.ppo import networks as ppo_networks
 import custom_ppo_networks
@@ -51,11 +54,11 @@ config = {
     "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 4096 * n_devices,
+    "num_envs": 128 * n_devices,
     "num_timesteps": 20_000_000_000,
-    "eval_every": 200_000_000,
+    "eval_every": 10_000,
     "episode_length": 200,
-    "batch_size": 4096 * n_devices,
+    "batch_size": 128 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 1e-4,
@@ -83,28 +86,6 @@ config = {
 
 envs.register_environment("single clip", RodentTracking)
 envs.register_environment("multi clip", RodentMultiClipTracking)
-
-
-# clip_id = 84  # 84 is the walking in half circle one
-# reference_path = f"clips/{clip_id}.p"
-
-# if not os.path.exists(reference_path):
-#     os.makedirs(os.path.dirname(reference_path), exist_ok=True)
-
-#     # Process rodent clip and save as pickle
-#     reference_clip = process_clip_to_train(
-#         stac_path="./transform_snips_new.p",
-#         start_step=clip_id * 250,
-#         clip_length=250,
-#         mjcf_path="./models/rodent_new.xml",
-#     )
-#     with open(reference_path, "wb") as file:
-#         # Use pickle.dump() to save the data to the file
-#         pickle.dump(reference_clip, file)
-# else:
-#     with open(reference_path, "rb") as file:
-#         # Use pickle.load() to load the data from the file
-#         reference_clip = pickle.load(file)
 
 clip_id = -1
 with open("./clips/coltrane_21_07_28.p", "rb") as file:
@@ -139,6 +120,11 @@ env = envs.get_environment(
 episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
 
+# Define mask for freezing weights
+mask = {"params": {"encoder": "encoder", "decoder": "decoder"}}
+value = {"params": "encoder"}
+freeze_mask = PPONetworkParams(mask, value)
+
 train_fn = functools.partial(
     ppo.train,
     num_timesteps=config["num_timesteps"],
@@ -165,14 +151,18 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(512, 512),
     ),
-    checkpoint_and_freeze=True,
+    freeze_mask=None,
+    restore_checkpoint_path=None,
 )
 
 import uuid
 
 # Generates a completely random UUID (version 4)
 run_id = uuid.uuid4()
-model_path = f"./model_checkpoints/{run_id}"
+checkpoint_dir = f"./model_checkpoints/{run_id}"
+
+options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2)
+ckpt_mgr = ocp.CheckpointManager(checkpoint_dir, options=options)
 
 run = wandb.init(project="vnl_debug", config=config, notes=f"clip_id: {clip_id}")
 
@@ -196,10 +186,8 @@ jit_step = jax.jit(rollout_env.step)
 
 
 def policy_params_fn(
-    num_steps, make_policy, params, rollout_key, model_path=model_path
+    num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
-    os.makedirs(model_path, exist_ok=True)
-    model.save_params(f"{model_path}/{num_steps}", params)
     jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
     rollout_key, reset_rng, act_rng = jax.random.split(rollout_key, 3)
 
@@ -373,16 +361,6 @@ def policy_params_fn(
     os.environ["MUJOCO_GL"] = "osmesa"
     qposes_rollout = np.array([state.pipeline_state.qpos for state in rollout])
 
-    # def f(x):
-    #     if len(x.shape) != 1:
-    #         return jax.lax.dynamic_slice_in_dim(
-    #             x,
-    #             0,
-    #             250,
-    #         )
-    #     return jp.array([])
-
-    # ref_traj = jax.tree_util.tree_map(f, reference_clip)
     ref_traj = rollout_env._get_reference_clip(rollout[0].info)
     print(f"clip_id:{rollout[0].info}")
     qposes_ref = np.repeat(
@@ -390,30 +368,6 @@ def policy_params_fn(
         env._steps_for_cur_frame,
         axis=0,
     )
-
-    # Trying to align them when using the reset wrapper...
-    # Doesn't work bc reset wrapper handles the done under the hood so it's always 0 :(
-    # done_array = np.array([state.done for state in rollout])
-    # reset_indices = np.where(done_array == 1.0)[0]
-    # if reset_indices.shape[0] == 0:
-    #     aligned_traj = qposes_ref
-    # else:
-    #     aligned_traj = np.zeros_like(qposes_rollout)
-    #     # Set the first segment
-    #     aligned_traj[: reset_indices[0] + 1] = qposes_ref[: reset_indices[0] + 1]
-
-    #     # Iterate through reset points
-    #     for i in range(len(reset_indices) - 1):
-    #         start = reset_indices[i] + 1
-    #         end = reset_indices[i + 1] + 1
-    #         length = end - start
-    #         aligned_traj[start:end] = qposes_ref[:length]
-
-    #     # Set the last segment
-    #     if reset_indices[-1] < len(done_array) - 1:
-    #         start = reset_indices[-1] + 1
-    #         length = len(done_array) - start
-    #         aligned_traj[start:] = qposes_ref[:length]
 
     root = mjcf_dm.from_path(f"./models/rodent_ghostpair_scale080.xml")
     rescale.rescale_subtree(
@@ -436,7 +390,7 @@ def policy_params_fn(
     renderer = mujoco.Renderer(mj_model, height=512, width=512)
 
     # render while stepping using mujoco
-    video_path = f"{model_path}/{num_steps}.mp4"
+    video_path = f"{checkpoint_dir}/{num_steps}.mp4"
 
     with imageio.get_writer(video_path, fps=int((1.0 / env.dt))) as video:
         for qpos1, qpos2 in zip(qposes_rollout, qposes_ref):
@@ -450,9 +404,12 @@ def policy_params_fn(
 
 
 make_inference_fn, params, _ = train_fn(
-    environment=env, progress_fn=wandb_progress, policy_params_fn=policy_params_fn
+    environment=env,
+    progress_fn=wandb_progress,
+    policy_params_fn=policy_params_fn,
+    checkpoint_manager=ckpt_mgr,
 )
 
-final_save_path = f"{model_path}/brax_ppo_rodent_run_finished"
+final_save_path = f"{checkpoint_dir}/brax_ppo_rodent_run_finished"
 model.save_params(final_save_path, params)
 print(f"Run finished. Model saved to {final_save_path}")

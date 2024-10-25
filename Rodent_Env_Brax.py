@@ -241,7 +241,7 @@ class RodentTracking(PipelineEnv):
         _, rng1, rng2 = jax.random.split(rng, 3)
 
         # Get reference clip and select the start frame
-        reference_frame = jax.tree_map(
+        reference_frame = jax.tree.map(
             lambda x: x[info["cur_frame"]], self._get_reference_clip(info)
         )
 
@@ -310,7 +310,7 @@ class RodentTracking(PipelineEnv):
         )
 
         # Gets reference clip and indexes to current frame
-        reference_clip = jax.tree_map(
+        reference_clip = jax.tree.map(
             lambda x: x[info["cur_frame"]], self._get_reference_clip(info)
         )
 
@@ -431,7 +431,7 @@ class RodentTracking(PipelineEnv):
                 )
             return jp.array([])
 
-        return jax.tree_util.tree_map(f, self._get_reference_clip(info))
+        return jax.tree_util.tree.map(f, self._get_reference_clip(info))
 
     def _get_obs(self, data: mjx.Data, info) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""
@@ -553,4 +553,4 @@ class RodentMultiClipTracking(RodentTracking):
     def _get_reference_clip(self, info) -> ReferenceClip:
         """Gets clip based on info["clip_idx"]"""
 
-        return jax.tree_map(lambda x: x[info["clip_idx"]], self._reference_clips)
+        return jax.tree.map(lambda x: x[info["clip_idx"]], self._reference_clips)
