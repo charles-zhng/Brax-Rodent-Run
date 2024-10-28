@@ -431,7 +431,7 @@ class RodentTracking(PipelineEnv):
                 )
             return jp.array([])
 
-        return jax.tree_util.tree.map(f, self._get_reference_clip(info))
+        return jax.tree.map(f, self._get_reference_clip(info))
 
     def _get_obs(self, data: mjx.Data, info) -> jp.ndarray:
         """Observes rodent body position, velocities, and angles."""

@@ -54,15 +54,16 @@ config = {
     "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 128 * n_devices,
+    "num_envs": 512 * n_devices,
     "num_timesteps": 20_000_000_000,
     "eval_every": 10_000,
     "episode_length": 200,
-    "batch_size": 128 * n_devices,
+    "batch_size": 512 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 1e-4,
     "kl_weight": 1e-4,
+    "kl_loss": True,
     "clipping_epsilon": 0.2,
     "torque_actuators": True,
     "physics_steps_per_control_step": 5,
@@ -88,7 +89,7 @@ envs.register_environment("single clip", RodentTracking)
 envs.register_environment("multi clip", RodentMultiClipTracking)
 
 clip_id = -1
-with open("./clips/coltrane_21_07_28.p", "rb") as file:
+with open("./clips/all_snips.p", "rb") as file:
     # Use pickle.load() to load the data from the file
     reference_clip = pickle.load(file)
 
@@ -121,7 +122,7 @@ episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
 
 # Define mask for freezing weights
-mask = {"params": {"encoder": "encoder", "decoder": "decoder"}}
+mask = {"params": {"encoder": "encoder", "decoder": "decoder", "bottleneck": "encoder"}}
 value = {"params": "encoder"}
 freeze_mask = PPONetworkParams(mask, value)
 
@@ -140,6 +141,7 @@ train_fn = functools.partial(
     num_updates_per_batch=config["num_updates_per_batch"],
     discounting=0.95,
     learning_rate=config["learning_rate"],
+    kl_loss=config["kl_loss"],
     kl_weight=config["kl_weight"],
     entropy_cost=1e-2,
     num_envs=config["num_envs"],
@@ -159,10 +161,14 @@ import uuid
 
 # Generates a completely random UUID (version 4)
 run_id = uuid.uuid4()
-checkpoint_dir = f"./model_checkpoints/{run_id}"
+checkpoint_dir = os.path.abspath(f"./model_checkpoints/{run_id}")
 
 options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2)
-ckpt_mgr = ocp.CheckpointManager(checkpoint_dir, options=options)
+ckpt_mgr = ocp.CheckpointManager(
+    checkpoint_dir,
+    item_names=("normalizer_params", "params", "env_steps"),
+    options=options,
+)
 
 run = wandb.init(project="vnl_debug", config=config, notes=f"clip_id: {clip_id}")
 
@@ -188,7 +194,10 @@ jit_step = jax.jit(rollout_env.step)
 def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
-    jit_inference_fn = jax.jit(make_policy(params, deterministic=True))
+    (processor_params, network_params, env_steps) = params
+    jit_inference_fn = jax.jit(
+        make_policy((processor_params, network_params.policy), deterministic=True)
+    )
     rollout_key, reset_rng, act_rng = jax.random.split(rollout_key, 3)
 
     state = jit_reset(reset_rng)

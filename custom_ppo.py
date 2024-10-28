@@ -30,7 +30,7 @@ from brax.training import pmap
 from brax.training import types
 from brax.training.acme import running_statistics
 from brax.training.acme import specs
-import orbax.checkpoint
+import orbax.checkpoint as ocp
 
 # from brax.training.agents.ppo import losses as ppo_losses
 import custom_losses as ppo_losses
@@ -41,6 +41,7 @@ from brax.training.types import Params
 from brax.training.types import PRNGKey
 from brax.v1 import envs as envs_v1
 import flax
+from flax.training import orbax_utils
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -84,13 +85,14 @@ def train(
     environment: Union[envs_v1.Env, envs.Env],
     num_timesteps: int,
     episode_length: int,
-    checkpoint_manager: orbax.CheckpointManager,
+    checkpoint_manager: ocp.CheckpointManager,
     action_repeat: int = 1,
     num_envs: int = 1,
     max_devices_per_host: Optional[int] = None,
     num_eval_envs: int = 128,
     learning_rate: float = 1e-4,
     entropy_cost: float = 1e-4,
+    kl_loss: bool = False,
     kl_weight: float = 1e-3,
     discounting: float = 0.9,
     seed: int = 0,
@@ -271,6 +273,7 @@ def train(
         ppo_losses.compute_ppo_loss,
         ppo_network=ppo_network,
         entropy_cost=entropy_cost,
+        kl_loss=kl_loss,
         kl_weight=kl_weight,
         discounting=discounting,
         reward_scaling=reward_scaling,
@@ -445,14 +448,12 @@ def train(
     ):
         logging.info("restoring from checkpoint %s", restore_checkpoint_path)
         # env_steps = int(epath.Path(restore_checkpoint_path).stem)
-        orbax_checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+        orbax_checkpointer = ocp.PyTreeCheckpointer()
         target = training_state.normalizer_params, init_params, training_state.env_steps
         (normalizer_params, load_params, env_steps) = orbax_checkpointer.restore(
             restore_checkpoint_path,
             item=target,
-            restore_args=flax.training.orbax_utils.restore_args_from_target(
-                target, mesh=None
-            ),
+            restore_args=orbax_utils.restore_args_from_target(target, mesh=None),
         )
         if freeze_mask is not None:
             load_params.policy["params"]["encoder"] = init_params.policy["params"][
@@ -551,8 +552,15 @@ def train(
                 )
             )
             # Save checkpoint
-            save_args = flax.training.orbax_utils.save_args_from_target(params)
-            checkpoint_manager.save(it, params, save_kwargs={"save_args": save_args})
+            checkpoint_manager.save(
+                it,
+                params,
+                args=ocp.args.Composite(
+                    normalizer_params=ocp.args.StandardSave(params[0]),
+                    params=ocp.args.StandardSave(params[1]),
+                    env_steps=ocp.args.ArraySave(params[2]),
+                ),
+            )
 
             _, policy_params_fn_key = jax.random.split(policy_params_fn_key)
             policy_params_fn(current_step, make_policy, params, policy_params_fn_key)

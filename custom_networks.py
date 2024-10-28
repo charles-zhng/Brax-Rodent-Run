@@ -80,7 +80,7 @@ class IntentionNetwork(nn.Module):
             jnp.concatenate([z, obs[..., self.reference_obs_size :]], axis=-1)
         )
 
-        return action, (latent_mean, latent_logvar)
+        return action, {"latent_mean": latent_mean, "latent_logvar": latent_logvar}
 
 
 class EncoderDecoderNetwork(nn.Module):
@@ -94,12 +94,37 @@ class EncoderDecoderNetwork(nn.Module):
     def setup(self):
         self.encoder = MLP(layer_sizes=self.encoder_layers, activate_final=True)
         self.decoder = MLP(layer_sizes=self.decoder_layers)
+        self.bottleneck = nn.Dense(self.latents, name="bottleneck")
 
     def __call__(self, obs, key):
         traj = obs[..., : self.reference_obs_size]
-        z = nn.Dense(self.latents, name="bottleneck")(self.encoder(traj))
+        z = self.bottleneck(self.encoder(traj))
         action = self.decoder(
             jnp.concatenate([z, obs[..., self.reference_obs_size :]], axis=-1)
+        )
+
+        return action, {}
+
+
+class RandomIntentionNetwork(nn.Module):
+    """Decoder only, throw out the reference obs and give random intention"""
+
+    decoder_layers: Sequence[int]
+    reference_obs_size: int
+    latents: int = 60
+
+    def setup(self):
+        self.decoder = MLP(layer_sizes=self.decoder_layers)
+
+    def __call__(self, obs, key):
+        _, intention_rng = jax.random.split(key)
+
+        # Hack to get the right shape
+        z = jax.random.normal(intention_rng, obs.shape)
+        action = self.decoder(
+            jnp.concatenate(
+                [z[: self.latents], obs[..., self.reference_obs_size :]], axis=-1
+            )
         )
 
         return action, z
@@ -149,6 +174,35 @@ def make_encoderdecoder_policy(
 
     policy_module = EncoderDecoderNetwork(
         encoder_layers=list(encoder_hidden_layer_sizes),
+        decoder_layers=list(decoder_hidden_layer_sizes) + [param_size],
+        reference_obs_size=reference_obs_size,
+        latents=latent_size,
+    )
+
+    def apply(processor_params, policy_params, obs, key):
+        obs = preprocess_observations_fn(obs, processor_params)
+        return policy_module.apply(policy_params, obs=obs, key=key)
+
+    dummy_total_obs = jnp.zeros((1, total_obs_size))
+    dummy_key = jax.random.PRNGKey(0)
+
+    return networks.FeedForwardNetwork(
+        init=lambda key: policy_module.init(key, dummy_total_obs, dummy_key),
+        apply=apply,
+    )
+
+
+def make_random_intention_policy(
+    param_size: int,
+    latent_size: int,
+    total_obs_size: int,
+    reference_obs_size: int,
+    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
+    decoder_hidden_layer_sizes: Sequence[int] = (1024, 1024),
+) -> IntentionNetwork:
+    """Creates an intention policy network."""
+
+    policy_module = RandomIntentionNetwork(
         decoder_layers=list(decoder_hidden_layer_sizes) + [param_size],
         reference_obs_size=reference_obs_size,
         latents=latent_size,
