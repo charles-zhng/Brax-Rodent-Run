@@ -117,8 +117,8 @@ def train(
     randomization_fn: Optional[
         Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
     ] = None,
+    freeze_mask_fn=None,
     restore_checkpoint_path: Optional[str] = None,
-    freeze_mask=None,
 ):
     """PPO training.
 
@@ -257,13 +257,9 @@ def train(
 
     make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
-    if freeze_mask is not None:
-        optimizer = optax.multi_transform(
-            {
-                "encoder": optax.adam(learning_rate=learning_rate),
-                "decoder": optax.set_to_zero(),
-            },
-            freeze_mask,
+    if freeze_mask_fn is not None:
+        optimizer = optax.masked(
+            optax.adam(learning_rate=learning_rate), mask=freeze_mask_fn
         )
         logging.info("Freezing layers")
     else:

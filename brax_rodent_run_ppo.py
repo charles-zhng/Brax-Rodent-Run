@@ -8,11 +8,6 @@ from brax import envs
 from dm_control import mjcf as mjcf_dm
 from dm_control.locomotion.walkers import rescale
 
-# from brax.training.agents.ppo import train as ppo
-import custom_ppo as ppo
-import custom_wrappers
-from custom_losses import PPONetworkParams
-
 from brax.io import model
 import numpy as np
 from Rodent_Env_Brax import RodentMultiClipTracking, RodentTracking
@@ -22,7 +17,9 @@ from preprocessing.mjx_preprocess import process_clip_to_train
 from jax import numpy as jp
 import orbax.checkpoint as ocp
 
-# from brax.training.agents.ppo import networks as ppo_networks
+import custom_ppo as ppo
+import custom_wrappers
+from custom_losses import PPONetworkParams
 import custom_ppo_networks
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -55,7 +52,7 @@ config = {
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 512 * n_devices,
-    "num_timesteps": 20_000_000_000,
+    "num_timesteps": 100_000,
     "eval_every": 10_000,
     "episode_length": 200,
     "batch_size": 512 * n_devices,
@@ -122,9 +119,27 @@ episode_length = (250 - 50 - 5) * env._steps_for_cur_frame
 print(f"episode_length {episode_length}")
 
 # Define mask for freezing weights
-mask = {"params": {"encoder": "encoder", "decoder": "decoder", "bottleneck": "encoder"}}
-value = {"params": "encoder"}
-freeze_mask = PPONetworkParams(mask, value)
+# mask = {"params": {"encoder": "encoder", "decoder": "decoder", "bottleneck": "encoder"}}
+# value = {"params": "encoder"}
+# freeze_mask = PPONetworkParams(mask, value)
+
+
+def create_decoder_mask(params, decoder_name="decoder"):
+    """Creates boolean mask were any leaves under decoder are set to False."""
+
+    def _mask_fn(path, _):
+        def f(key):
+            try:
+                return key.key
+            except:
+                return key.name
+
+        # Check if any part of the path contains 'decoder'
+        return not decoder_name in [str(f(part)) for part in path]
+
+    # Create mask using tree_map_with_path
+    return jax.tree_util.tree_map_with_path(lambda path, _: _mask_fn(path, _), params)
+
 
 train_fn = functools.partial(
     ppo.train,
@@ -153,7 +168,7 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(512, 512),
     ),
-    freeze_mask=None,
+    freeze_mask_fn=create_decoder_mask,
     restore_checkpoint_path=None,
 )
 
