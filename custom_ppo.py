@@ -255,15 +255,32 @@ def train(
         preprocess_observations_fn=normalize,
     )
 
+    init_params = ppo_losses.PPONetworkParams(
+        policy=ppo_network.policy_network.init(key_policy),
+        value=ppo_network.value_network.init(key_value),
+    )
+
     make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
     if freeze_mask_fn is not None:
-        optimizer = optax.masked(
-            optax.adam(learning_rate=learning_rate), mask=freeze_mask_fn
+        optimizer = optax.multi_transform(
+            {
+                "learned": optax.adam(learning_rate=learning_rate),
+                "frozen": optax.set_to_zero(),
+            },
+            freeze_mask_fn,
         )
         logging.info("Freezing layers")
     else:
         optimizer = optax.adam(learning_rate=learning_rate)
+
+    # if freeze_mask_fn is not None:
+    #     optimizer = optax.masked(
+    #         optax.adam(learning_rate=learning_rate), mask=freeze_mask_fn(init_params)
+    #     )
+    #     logging.info("Freezing layers")
+    # else:
+    #     optimizer = optax.adam(learning_rate=learning_rate)
 
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
@@ -421,11 +438,6 @@ def train(
             metrics,
         )  # pytype: disable=bad-return-type  # py311-upgrade
 
-    init_params = ppo_losses.PPONetworkParams(
-        policy=ppo_network.policy_network.init(key_policy),
-        value=ppo_network.value_network.init(key_value),
-    )
-
     training_state = TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
         optimizer_state=optimizer.init(
             init_params
@@ -451,7 +463,7 @@ def train(
             item=target,
             restore_args=orbax_utils.restore_args_from_target(target, mesh=None),
         )
-        if freeze_mask is not None:
+        if freeze_mask_fn is not None:
             load_params.policy["params"]["encoder"] = init_params.policy["params"][
                 "encoder"
             ]

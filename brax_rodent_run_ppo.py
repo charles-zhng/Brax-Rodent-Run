@@ -21,6 +21,7 @@ import custom_ppo as ppo
 import custom_wrappers
 from custom_losses import PPONetworkParams
 import custom_ppo_networks
+import network_masks as masks
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -124,23 +125,6 @@ print(f"episode_length {episode_length}")
 # freeze_mask = PPONetworkParams(mask, value)
 
 
-def create_decoder_mask(params, decoder_name="decoder"):
-    """Creates boolean mask were any leaves under decoder are set to False."""
-
-    def _mask_fn(path, _):
-        def f(key):
-            try:
-                return key.key
-            except:
-                return key.name
-
-        # Check if any part of the path contains 'decoder'
-        return not decoder_name in [str(f(part)) for part in path]
-
-    # Create mask using tree_map_with_path
-    return jax.tree_util.tree_map_with_path(lambda path, _: _mask_fn(path, _), params)
-
-
 train_fn = functools.partial(
     ppo.train,
     num_timesteps=config["num_timesteps"],
@@ -164,11 +148,12 @@ train_fn = functools.partial(
     seed=0,
     network_factory=functools.partial(
         custom_ppo_networks.make_intention_ppo_networks,
-        encoder_hidden_layer_sizes=(512, 512),
-        decoder_hidden_layer_sizes=(512, 512),
-        value_hidden_layer_sizes=(512, 512),
+        intention_latent_size=4,
+        encoder_hidden_layer_sizes=(8, 8),
+        decoder_hidden_layer_sizes=(8, 8),
+        value_hidden_layer_sizes=(8, 8),
     ),
-    freeze_mask_fn=create_decoder_mask,
+    freeze_mask_fn=masks.create_bias_mask,
     restore_checkpoint_path=None,
 )
 
@@ -210,6 +195,8 @@ def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
     (processor_params, network_params, env_steps) = params
+    print(network_params.policy)
+    print(network_params.value)
     jit_inference_fn = jax.jit(
         make_policy((processor_params, network_params.policy), deterministic=True)
     )

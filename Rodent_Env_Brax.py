@@ -289,6 +289,7 @@ class RodentTracking(PipelineEnv):
             "bad_pose": zero,
             "bad_quat": zero,
             "fall": zero,
+            "nan": zero,
         }
 
         return State(data, obs, reward, done, metrics, info)
@@ -408,6 +409,7 @@ class RodentTracking(PipelineEnv):
             bad_pose=bad_pose,
             bad_quat=bad_quat,
             fall=fall,
+            nan=nan,
         )
 
         return state.replace(
