@@ -52,11 +52,11 @@ config = {
     "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 512 * n_devices,
-    "num_timesteps": 100_000,
-    "eval_every": 10_000,
+    "num_envs": 256 * n_devices,
+    "num_timesteps": 50_000,
+    "eval_every": 5_000,
     "episode_length": 200,
-    "batch_size": 512 * n_devices,
+    "batch_size": 256 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 1e-4,
@@ -195,8 +195,7 @@ def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
     (processor_params, network_params, env_steps) = params
-    print(network_params.policy)
-    print(network_params.value)
+    print(network_params.policy["params"]["decoder"]["hidden_0"]["kernel"])
     jit_inference_fn = jax.jit(
         make_policy((processor_params, network_params.policy), deterministic=True)
     )

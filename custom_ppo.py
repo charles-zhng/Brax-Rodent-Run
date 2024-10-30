@@ -268,19 +268,12 @@ def train(
                 "learned": optax.adam(learning_rate=learning_rate),
                 "frozen": optax.set_to_zero(),
             },
-            freeze_mask_fn,
+            freeze_mask_fn(init_params),
         )
-        logging.info("Freezing layers")
+        print("Freezing layers")
     else:
         optimizer = optax.adam(learning_rate=learning_rate)
-
-    # if freeze_mask_fn is not None:
-    #     optimizer = optax.masked(
-    #         optax.adam(learning_rate=learning_rate), mask=freeze_mask_fn(init_params)
-    #     )
-    #     logging.info("Freezing layers")
-    # else:
-    #     optimizer = optax.adam(learning_rate=learning_rate)
+        print("Not freezing any layers")
 
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
