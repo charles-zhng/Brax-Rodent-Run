@@ -124,6 +124,7 @@ def train(
     checkpoint_network_factory: types.NetworkFactory[
         custom_ppo_networks.PPOImitationNetworks
     ] = custom_ppo_networks.make_intention_ppo_networks,
+    tracking_task_obs_size: int = 470,
     continue_training: bool = False,
     custom_wrap: bool = False,
     create_running_statistics_mask: bool = False,
@@ -466,9 +467,15 @@ def train(
         logging.info("restoring from checkpoint %s", checkpoint_path)
         # env_steps = int(epath.Path(checkpoint_path).stem)
         ckptr = ocp.StandardCheckpointHandler()
+        tracking_task_obs_size = 470
+        tracking_obs_size = (
+            env_state.obs.shape[-1]
+            - env_state.info["task_obs_size"]
+            + tracking_task_obs_size
+        )
         checkpoint_ppo_network = checkpoint_network_factory(
-            env_state.obs.shape[-1],
-            int(_unpmap(env_state.info["task_obs_size"])[0]),
+            tracking_obs_size,
+            tracking_task_obs_size,
             env.action_size,
             preprocess_observations_fn=normalize,
         )
@@ -476,10 +483,14 @@ def train(
             policy=checkpoint_ppo_network.policy_network.init(key_policy),
             value=checkpoint_ppo_network.value_network.init(key_value),
         )
-        target = (
-            training_state.normalizer_params,
-            checkpoint_init_params,
-            training_state.env_steps,
+        target = ocp.args.Composite(
+            normalizer_params=ocp.args.StandardRestore(
+                masked_running_statistics.init_state(
+                    specs.Array(tracking_obs_size, jnp.dtype("float32"))
+                )
+            ),
+            params=ocp.args.StandardRestore(checkpoint_init_params),
+            env_steps=ocp.args.ArrayRestore(0),
         )
         (normalizer_params, load_params, env_steps) = ckptr.restore(
             checkpoint_path,
