@@ -28,7 +28,9 @@ from brax.training import acting
 from brax.training import gradients
 from brax.training import pmap
 from brax.training import types
+
 from brax.training.acme import running_statistics
+import masked_running_statistics
 from brax.training.acme import specs
 import orbax.checkpoint as ocp
 
@@ -118,7 +120,13 @@ def train(
         Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
     ] = None,
     freeze_mask_fn=None,
-    restore_checkpoint_path: Optional[str] = None,
+    checkpoint_path: Optional[str] = None,
+    checkpoint_network_factory: types.NetworkFactory[
+        custom_ppo_networks.PPOImitationNetworks
+    ] = custom_ppo_networks.make_intention_ppo_networks,
+    continue_training: bool = False,
+    custom_wrap: bool = False,
+    create_running_statistics_mask: bool = False,
 ):
     """PPO training.
 
@@ -228,7 +236,10 @@ def train(
         v_randomization_fn = functools.partial(randomization_fn, rng=randomization_rng)
 
     if isinstance(environment, envs.Env):
-        wrap_for_training = custom_wrappers.wrap
+        if custom_wrap:
+            wrap_for_training = custom_wrappers.wrap
+        else:
+            wrap_for_training = envs.training.wrap
     else:
         wrap_for_training = envs_v1.wrappers.wrap_for_training
 
@@ -246,21 +257,21 @@ def train(
 
     normalize = lambda x, y: x
     if normalize_observations:
-        normalize = running_statistics.normalize
+        normalize = masked_running_statistics.normalize
 
     ppo_network = network_factory(
         env_state.obs.shape[-1],
-        int(_unpmap(env_state.info["reference_obs_size"])[0]),
+        int(_unpmap(env_state.info["task_obs_size"])[0]),
         env.action_size,
         preprocess_observations_fn=normalize,
     )
+
+    make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
     init_params = ppo_losses.PPONetworkParams(
         policy=ppo_network.policy_network.init(key_policy),
         value=ppo_network.value_network.init(key_value),
     )
-
-    make_policy = custom_ppo_networks.make_inference_fn(ppo_network)
 
     if freeze_mask_fn is not None:
         optimizer = optax.multi_transform(
@@ -274,6 +285,13 @@ def train(
     else:
         optimizer = optax.adam(learning_rate=learning_rate)
         print("Not freezing any layers")
+
+    if create_running_statistics_mask:
+        running_statistics_mask = jnp.arange(env_state.obs.shape[-1]) < int(
+            _unpmap(env_state.info["task_obs_size"])[0]
+        )
+    else:
+        running_statistics_mask = None
 
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
@@ -365,9 +383,10 @@ def train(
         assert data.discount.shape[1:] == (unroll_length,)
 
         # Update normalization params and normalize observations.
-        normalizer_params = running_statistics.update(
+        normalizer_params = masked_running_statistics.update(
             training_state.normalizer_params,
             data.observation,
+            mask=running_statistics_mask,
             pmap_axis_name=_PMAP_AXIS_NAME,
         )
 
@@ -436,37 +455,51 @@ def train(
             init_params
         ),  # pytype: disable=wrong-arg-types  # numpy-scalars
         params=init_params,
-        normalizer_params=running_statistics.init_state(
+        normalizer_params=masked_running_statistics.init_state(
             specs.Array(env_state.obs.shape[-1:], jnp.dtype("float32"))
         ),
         env_steps=0,
     )
 
     # Load from checkpoint
-    if (
-        restore_checkpoint_path is not None
-        and epath.Path(restore_checkpoint_path).exists()
-    ):
-        logging.info("restoring from checkpoint %s", restore_checkpoint_path)
-        # env_steps = int(epath.Path(restore_checkpoint_path).stem)
-        orbax_checkpointer = ocp.PyTreeCheckpointer()
-        target = training_state.normalizer_params, init_params, training_state.env_steps
-        (normalizer_params, load_params, env_steps) = orbax_checkpointer.restore(
-            restore_checkpoint_path,
-            item=target,
-            restore_args=orbax_utils.restore_args_from_target(target, mesh=None),
+    if checkpoint_path is not None and epath.Path(checkpoint_path).exists():
+        logging.info("restoring from checkpoint %s", checkpoint_path)
+        # env_steps = int(epath.Path(checkpoint_path).stem)
+        ckptr = ocp.StandardCheckpointHandler()
+        checkpoint_ppo_network = checkpoint_network_factory(
+            env_state.obs.shape[-1],
+            int(_unpmap(env_state.info["task_obs_size"])[0]),
+            env.action_size,
+            preprocess_observations_fn=normalize,
         )
+        checkpoint_init_params = ppo_losses.PPONetworkParams(
+            policy=checkpoint_ppo_network.policy_network.init(key_policy),
+            value=checkpoint_ppo_network.value_network.init(key_value),
+        )
+        target = (
+            training_state.normalizer_params,
+            checkpoint_init_params,
+            training_state.env_steps,
+        )
+        (normalizer_params, load_params, env_steps) = ckptr.restore(
+            checkpoint_path,
+            args=ocp.args.StandardRestore(target),
+        )
+
+        # Only partially replace initial policy if freezing decoder
         if freeze_mask_fn is not None:
-            load_params.policy["params"]["encoder"] = init_params.policy["params"][
-                "encoder"
+            init_params.policy["params"]["decoder"] = load_params.policy["params"][
+                "decoder"
             ]
-            init_params = init_params.replace(
-                policy=load_params.policy, value=load_params.value
-            )
+
         else:
-            init_params = init_params.replace(
-                policy=load_params.policy, value=load_params.value
-            )
+            init_params = init_params.replace(policy=load_params.policy)
+
+        if continue_training:
+            init_params = init_params.replace(value=load_params.value)
+        else:
+            env_steps = 0
+
         training_state = (
             TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
                 optimizer_state=optimizer.init(

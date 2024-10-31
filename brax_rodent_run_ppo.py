@@ -10,7 +10,7 @@ from dm_control.locomotion.walkers import rescale
 
 from brax.io import model
 import numpy as np
-from Rodent_Env_Brax import RodentMultiClipTracking, RodentTracking
+from rodent import RodentMultiClipTracking, RodentTracking
 import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
@@ -52,11 +52,11 @@ config = {
     "env_name": "multi clip",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 256 * n_devices,
-    "num_timesteps": 50_000,
-    "eval_every": 5_000,
-    "episode_length": 200,
-    "batch_size": 256 * n_devices,
+    "num_envs": 128 * n_devices,
+    "num_timesteps": 100_000,
+    "eval_every": 10_000,
+    "episode_length": 500,
+    "batch_size": 128 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 1e-4,
@@ -153,8 +153,11 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(8, 8),
         value_hidden_layer_sizes=(8, 8),
     ),
-    freeze_mask_fn=masks.create_bias_mask,
-    restore_checkpoint_path=None,
+    freeze_mask_fn=masks.create_decoder_mask,
+    checkpoint_path=None,
+    continue_training=False,
+    custom_wrap=True,  # custom wrappers to handle infos
+    create_running_statistics_mask=True,
 )
 
 import uuid
