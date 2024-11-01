@@ -50,11 +50,11 @@ config = {
     "env_name": "joystick",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 128 * n_devices,
+    "num_envs": 512 * n_devices,
     "num_timesteps": 1_000_000_000,
-    "eval_every": 10_000,
+    "eval_every": 100_000,
     "episode_length": 500,
-    "batch_size": 128 * n_devices,
+    "batch_size": 512 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 3e-4,
@@ -112,7 +112,7 @@ train_fn = functools.partial(
     network_factory=functools.partial(
         custom_ppo_networks.make_encoderdecoder_ppo_networks,
         intention_latent_size=60,
-        encoder_hidden_layer_sizes=(128, 128),
+        encoder_hidden_layer_sizes=(256, 256),
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(256, 256),
     ),
@@ -124,7 +124,7 @@ train_fn = functools.partial(
         value_hidden_layer_sizes=(512, 512),
     ),
     freeze_mask_fn=masks.create_decoder_mask,
-    checkpoint_path=Path("0ce773e7-1d50-4475-b338-9b5f6510c56c/6"),
+    checkpoint_path=Path("0ce773e7-1d50-4475-b338-9b5f6510c56c/38"),
     continue_training=False,
 )
 
@@ -165,7 +165,7 @@ def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
     (processor_params, network_params, env_steps) = params
-    print(network_params.policy["params"]["decoder"]["hidden_0"]["kernel"])
+    print(network_params.policy["params"])
     jit_inference_fn = jax.jit(
         make_policy((processor_params, network_params.policy), deterministic=True)
     )
@@ -178,6 +178,7 @@ def policy_params_fn(
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
+        print(ctrl)
         state = jit_step(state, ctrl)
         rollout.append(state)
 
@@ -190,7 +191,7 @@ def policy_params_fn(
     imageio.mimwrite(
         video_path,
         rollout_env.render(
-            [state.pipeline_state for state in rollout], camera=1, height=500, width=500
+            [state.pipeline_state for state in rollout], camera=1, height=512, width=512
         ),
         fps=int((1.0 / env.dt)),
     )

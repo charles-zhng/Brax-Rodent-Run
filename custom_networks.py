@@ -192,35 +192,6 @@ def make_encoderdecoder_policy(
     )
 
 
-def make_task_policy(
-    param_size: int,
-    latent_size: int,
-    total_obs_size: int,
-    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
-    encoder_hidden_layer_sizes: Sequence[int] = (1024, 1024),
-    decoder_hidden_layer_sizes: Sequence[int] = (1024, 1024),
-) -> IntentionNetwork:
-    """Creates an intention policy network."""
-
-    policy_module = TaskToDecoderNetwork(
-        encoder_layers=list(encoder_hidden_layer_sizes),
-        decoder_layers=list(decoder_hidden_layer_sizes) + [param_size],
-        latents=latent_size,
-    )
-
-    def apply(processor_params, policy_params, obs, key):
-        obs = preprocess_observations_fn(obs, processor_params)
-        return policy_module.apply(policy_params, obs=obs, key=key)
-
-    dummy_total_obs = jnp.zeros((1, total_obs_size))
-    dummy_key = jax.random.PRNGKey(0)
-
-    return networks.FeedForwardNetwork(
-        init=lambda key: policy_module.init(key, dummy_total_obs, dummy_key),
-        apply=apply,
-    )
-
-
 def make_random_intention_policy(
     param_size: int,
     latent_size: int,

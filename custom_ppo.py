@@ -326,10 +326,7 @@ def train(
             params=ocp.args.StandardRestore(checkpoint_init_params),
             env_steps=ocp.args.ArrayRestore(0),
         )
-        loaded_ckpt = ckptr.restore(
-            checkpoint_path.resolve(),
-            args=target,
-        )
+        loaded_ckpt = ckptr.restore(checkpoint_path.resolve(), args=target)
         loaded_normalizer_params = loaded_ckpt["normalizer_params"]
         loaded_params = loaded_ckpt["params"]
         env_steps = loaded_ckpt["env_steps"]
@@ -354,7 +351,6 @@ def train(
             normalizer_params = RunningStatisticsState(
                 count=jnp.zeros(()), mean=mean, summed_variance=summed_variance, std=std
             )
-            print(running_statistics_mask)
             assert (
                 running_statistics_mask.shape
                 == training_state.normalizer_params.mean.shape
