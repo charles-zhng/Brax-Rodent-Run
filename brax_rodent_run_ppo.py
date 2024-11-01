@@ -166,7 +166,7 @@ import uuid
 run_id = uuid.uuid4()
 checkpoint_dir = os.path.abspath(f"./model_checkpoints/{run_id}")
 
-options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2)
+options = ocp.CheckpointManagerOptions(save_interval_steps=2)
 ckpt_mgr = ocp.CheckpointManager(
     checkpoint_dir,
     item_names=("normalizer_params", "params", "env_steps"),

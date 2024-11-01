@@ -50,11 +50,11 @@ config = {
     "env_name": "joystick",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 256 * n_devices,
+    "num_envs": 128 * n_devices,
     "num_timesteps": 1_000_000_000,
-    "eval_every": 10_000_000,
+    "eval_every": 10_000,
     "episode_length": 500,
-    "batch_size": 256 * n_devices,
+    "batch_size": 128 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 3e-4,
@@ -112,9 +112,9 @@ train_fn = functools.partial(
     network_factory=functools.partial(
         custom_ppo_networks.make_encoderdecoder_ppo_networks,
         intention_latent_size=60,
-        encoder_hidden_layer_sizes=(512, 512),
+        encoder_hidden_layer_sizes=(128, 128),
         decoder_hidden_layer_sizes=(512, 512),
-        value_hidden_layer_sizes=(512, 512),
+        value_hidden_layer_sizes=(256, 256),
     ),
     checkpoint_network_factory=functools.partial(
         custom_ppo_networks.make_intention_ppo_networks,
@@ -124,9 +124,7 @@ train_fn = functools.partial(
         value_hidden_layer_sizes=(512, 512),
     ),
     freeze_mask_fn=masks.create_decoder_mask,
-    checkpoint_path=Path(
-        "/Users/charleszhang/GitHub/Brax-Rodent-Run/943aa149-d90f-46c8-b57c-1c2a0a93031d-latest"
-    ),
+    checkpoint_path=Path("0ce773e7-1d50-4475-b338-9b5f6510c56c/6"),
     continue_training=False,
 )
 
@@ -136,7 +134,7 @@ import uuid
 run_id = uuid.uuid4()
 checkpoint_dir = os.path.abspath(f"./model_checkpoints/{run_id}")
 
-options = ocp.CheckpointManagerOptions(max_to_keep=3, save_interval_steps=2)
+options = ocp.CheckpointManagerOptions(save_interval_steps=2)
 ckpt_mgr = ocp.CheckpointManager(
     checkpoint_dir,
     item_names=("normalizer_params", "params", "env_steps"),
@@ -191,7 +189,9 @@ def policy_params_fn(
 
     imageio.mimwrite(
         video_path,
-        rollout_env.render(rollout, camera=1, height=500, width=500),
+        rollout_env.render(
+            [state.pipeline_state for state in rollout], camera=1, height=500, width=500
+        ),
         fps=int((1.0 / env.dt)),
     )
 
