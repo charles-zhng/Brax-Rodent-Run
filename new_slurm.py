@@ -15,7 +15,7 @@ def slurm_submit(script):
         print(f"Error submitting job: {e.output}", file=sys.stderr)
         sys.exit(1)
 
-def submit(gpu_type, num_gpus, job_name, mem, cpus, time, out_dir):
+def submit(task, gpu_type, num_gpus, job_name, mem, cpus, time, out_dir):
     """
     Construct and submit the SLURM script with the specified parameters.
     """
@@ -29,6 +29,10 @@ def submit(gpu_type, num_gpus, job_name, mem, cpus, time, out_dir):
 
     gpu_resource = f"gpu:{gpu_configs[gpu_type]}:{num_gpus}"
 
+    tasks = {
+            'tracking': 'brax_rodent_run_ppo.py',
+            'jotstick': 'run_joystick.py',
+            }
     # Construct the SLURM script
     script = f"""#!/bin/bash
 #SBATCH -p olveczkygpu,gpu,gpu_requeue,serial_requeue
@@ -50,7 +54,7 @@ module load cuda/12.2.0-fasrc01
 nvidia-smi
 
 # Run the Python script
-python3 brax_rodent_run_ppo.py
+python3 {tasks[task]}
 """
 
     print(f"Submitting job with GPU type: {gpu_type}, Number of GPUs: {num_gpus}")
@@ -74,10 +78,13 @@ def main():
                         help='Time limit for the job (default: 0-8:00)')
     parser.add_argument('--out_dir', type=str, default='slurm/out',
                         help='Path for standard output (default: /slurm/out)')
-
+    parser.add_argument('--task', type=str, default='tracking',
+                        help='name of training task; tracking or joystick (default: tracking)')
+    
     args = parser.parse_args()
 
     submit(
+        task=args.task,
         gpu_type=args.gpu_type,
         num_gpus=args.num_gpus,
         job_name=args.job_name,
