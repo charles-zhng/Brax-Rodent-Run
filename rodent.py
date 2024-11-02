@@ -414,7 +414,7 @@ class RodentTracking(PipelineEnv):
             bodypos_reward=bodypos_reward,
             endeff_reward=endeff_reward,
             reward_ctrlcost=-ctrl_cost,
-            ctrl_diff_cost=ctrl_diff_cost,
+            ctrl_diff_cost=-ctrl_diff_cost,
             too_far=too_far,
             bad_pose=bad_pose,
             bad_quat=bad_quat,
@@ -671,13 +671,6 @@ class RodentJoystick(PipelineEnv):
 
         # sys = sys.tree_replace({"opt.timestep": 0.004})
 
-        # override menagerie params for smoother policy
-        # sys = sys.replace(
-        #     dof_damping=sys.dof_damping.at[6:].set(0.5239),
-        #     actuator_gainprm=sys.actuator_gainprm.at[:, 0].set(35.0),
-        #     actuator_biasprm=sys.actuator_biasprm.at[:, 1].set(-35.0),
-        # )
-
         n_frames = kwargs.pop("n_frames", int(self._dt / sys.opt.timestep))
         super().__init__(sys, backend="mjx", n_frames=n_frames)
 
@@ -761,7 +754,10 @@ class RodentJoystick(PipelineEnv):
 
         obs = jp.concatenate([task_obs, proprioceptive_obs])
         reward, done = jp.zeros(2)
-        metrics = {"total_dist": 0.0}
+        metrics = {
+            "total_dist": 0.0,
+            "nan": 0.0,
+        }
         for k in state_info["rewards"]:
             metrics[k] = state_info["rewards"][k]
         state = State(
@@ -814,7 +810,7 @@ class RodentJoystick(PipelineEnv):
         # done |= jp.any(joint_angles < self.lowers)
         # done |= jp.any(joint_angles > self.uppers)
 
-        # Modified value for rodent
+        # Modified fall value for rodent
         done |= pipeline_state.x.pos[self._torso_idx - 1, 2] < 0.0325
 
         # reward
@@ -849,6 +845,18 @@ class RodentJoystick(PipelineEnv):
         }
         reward = jp.clip(sum(rewards.values()) * self.dt, 0.0, 10000.0)
 
+        # Handle nans during sim by resetting env
+        reward = jp.nan_to_num(reward)
+        obs = jp.nan_to_num(obs)
+
+        from jax.flatten_util import ravel_pytree
+
+        flattened_vals, _ = ravel_pytree(pipeline_state)
+        num_nans = jp.sum(jp.isnan(flattened_vals))
+        nan = jp.where(num_nans > 0, True, False)
+        done |= nan
+
+        state.metrics["nan"] = jp.float32(nan)
         # state management
         # state.info["kick"] = kick
         state.info["last_act"] = action

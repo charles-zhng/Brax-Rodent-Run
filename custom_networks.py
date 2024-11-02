@@ -24,7 +24,7 @@ class VariationalLayer(nn.Module):
     def __call__(self, x):
         mean_x = nn.Dense(self.latent_size, name="mean")(x)
         logvar_x = nn.Dense(self.latent_size, name="logvar")(x)
-
+        # logvar_x = nn.sigmoid(logvar_x) * 3  # range of (-3, 3)
         return mean_x, logvar_x
 
 

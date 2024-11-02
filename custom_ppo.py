@@ -298,6 +298,7 @@ def train(
         env_steps=0,
     )
 
+    running_statistics_mask = None
     # Load from checkpoint, and set params for decoder if freeze, or all if continuing
     if checkpoint_path is not None and epath.Path(checkpoint_path).exists():
         logging.info("restoring from checkpoint %s", checkpoint_path)
@@ -357,7 +358,6 @@ def train(
             )
         else:
             init_params = init_params.replace(policy=loaded_params.policy)
-            running_statistics_mask = None
 
         if continue_training:
             init_params = init_params.replace(value=loaded_params.value)
@@ -374,7 +374,6 @@ def train(
                 env_steps=env_steps,
             )
         )
-
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
         ppo_network=ppo_network,

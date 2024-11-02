@@ -50,11 +50,11 @@ config = {
     "env_name": "joystick",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 512 * n_devices,
+    "num_envs": 64 * n_devices,
     "num_timesteps": 1_000_000_000,
-    "eval_every": 100_000,
+    "eval_every": 1_000,
     "episode_length": 500,
-    "batch_size": 512 * n_devices,
+    "batch_size": 64 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 3e-4,
@@ -178,7 +178,6 @@ def policy_params_fn(
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
-        print(ctrl)
         state = jit_step(state, ctrl)
         rollout.append(state)
 
