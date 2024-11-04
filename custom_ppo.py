@@ -301,7 +301,7 @@ def train(
     running_statistics_mask = None
     # Load from checkpoint, and set params for decoder if freeze, or all if continuing
     if checkpoint_path is not None and epath.Path(checkpoint_path).exists():
-        logging.info("restoring from checkpoint %s", checkpoint_path)
+        print(f"restoring from checkpoint {checkpoint_path}")
         # env_steps = int(epath.Path(checkpoint_path).stem)
         ckptr = ocp.CompositeCheckpointHandler()
         tracking_task_obs_size = 470
@@ -334,6 +334,7 @@ def train(
 
         # Only partially replace initial policy if freezing decoder
         if freeze_mask_fn is not None:
+            print(f"Replacing decoder")
             init_params.policy["params"]["decoder"] = loaded_params.policy["params"][
                 "decoder"
             ]
@@ -357,9 +358,11 @@ def train(
                 == training_state.normalizer_params.mean.shape
             )
         else:
+            print("Replacing entire policy")
             init_params = init_params.replace(policy=loaded_params.policy)
 
         if continue_training:
+            print("replacing value network")
             init_params = init_params.replace(value=loaded_params.value)
         else:
             env_steps = 0
@@ -374,6 +377,8 @@ def train(
                 env_steps=env_steps,
             )
         )
+
+    print("Network parameters initialized")
     loss_fn = functools.partial(
         ppo_losses.compute_ppo_loss,
         ppo_network=ppo_network,

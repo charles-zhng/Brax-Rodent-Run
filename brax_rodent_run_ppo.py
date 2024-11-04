@@ -213,8 +213,8 @@ def policy_params_fn(
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
-        latent_means.append(extras["latent_mean"])
-        latent_logvars.append(extras["latent_logvar"])
+        latent_means.append(extras["extras"]["latent_mean"])
+        latent_logvars.append(extras["extras"]["latent_logvar"])
         state = jit_step(state, ctrl)
         rollout.append(state)
 

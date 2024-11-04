@@ -50,11 +50,11 @@ config = {
     "env_name": "joystick",
     "algo_name": "ppo",
     "task_name": "run",
-    "num_envs": 64 * n_devices,
+    "num_envs": 512 * n_devices,
     "num_timesteps": 1_000_000_000,
-    "eval_every": 10_000,
+    "eval_every": 1_000_000,
     "episode_length": 500,
-    "batch_size": 64 * n_devices,
+    "batch_size": 256 * n_devices,
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 3e-4,
@@ -124,7 +124,7 @@ train_fn = functools.partial(
         value_hidden_layer_sizes=(512, 512),
     ),
     freeze_mask_fn=masks.create_decoder_mask,
-    checkpoint_path=Path(".f910c0ea-0dd1-4b58-bca0-9fa4705cb2d0/34"),
+    checkpoint_path=Path("./f910c0ea-0dd1-4b58-bca0-9fa4705cb2d0/34"),
     continue_training=False,
 )
 
@@ -165,7 +165,7 @@ def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
     (processor_params, network_params, env_steps) = params
-    print(network_params.policy["params"])
+    print(network_params.policy["params"]["decoder"])
     jit_inference_fn = jax.jit(
         make_policy((processor_params, network_params.policy), deterministic=True)
     )

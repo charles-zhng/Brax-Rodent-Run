@@ -757,6 +757,8 @@ class RodentJoystick(PipelineEnv):
         metrics = {
             "total_dist": 0.0,
             "nan": 0.0,
+            "fall": 0.0,
+            "flip": 0.0,
         }
         for k in state_info["rewards"]:
             metrics[k] = state_info["rewards"][k]
@@ -806,12 +808,13 @@ class RodentJoystick(PipelineEnv):
 
         # done if joint limits are reached or robot is falling
         up = jp.array([0.0, 0.0, 1.0])
-        done = jp.dot(brax_math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
+        flip = jp.dot(brax_math.rotate(up, x.rot[self._torso_idx - 1]), up) < 0
         # done |= jp.any(joint_angles < self.lowers)
         # done |= jp.any(joint_angles > self.uppers)
 
         # Modified fall value for rodent
-        done |= pipeline_state.x.pos[self._torso_idx - 1, 2] < 0.0325
+        fall = pipeline_state.x.pos[self._torso_idx - 1, 2] < 0.0325
+        done = fall | flip
 
         # reward
         rewards = {
@@ -857,6 +860,8 @@ class RodentJoystick(PipelineEnv):
         done |= nan
 
         state.metrics["nan"] = jp.float32(nan)
+        state.metrics["fall"] = jp.float32(fall)
+        state.metrics["flip"] = jp.float32(flip)
         # state management
         # state.info["kick"] = kick
         state.info["last_act"] = action

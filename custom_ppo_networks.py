@@ -64,8 +64,7 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
                 "log_prob": log_prob,
                 "raw_action": raw_actions,
                 "logits": logits,
-                "latent_mean": extras["latent_mean"],
-                "latent_logvar": extras["latent_logvar"],
+                "extras": extras,
             }
 
         return policy
