@@ -52,7 +52,7 @@ config = {
     "task_name": "run",
     "num_envs": 64 * n_devices,
     "num_timesteps": 1_000_000_000,
-    "eval_every": 1_000,
+    "eval_every": 10_000,
     "episode_length": 500,
     "batch_size": 64 * n_devices,
     "num_minibatches": 4 * n_devices,
@@ -63,8 +63,8 @@ config = {
     "torque_actuators": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 8,
-    "ls_iterations": 8,
+    "iterations": 16,
+    "ls_iterations": 16,
 }
 
 envs.register_environment("joystick", RodentJoystick)
@@ -124,7 +124,7 @@ train_fn = functools.partial(
         value_hidden_layer_sizes=(512, 512),
     ),
     freeze_mask_fn=masks.create_decoder_mask,
-    checkpoint_path=Path("0ce773e7-1d50-4475-b338-9b5f6510c56c/38"),
+    checkpoint_path=Path(".f910c0ea-0dd1-4b58-bca0-9fa4705cb2d0/34"),
     continue_training=False,
 )
 

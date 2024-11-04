@@ -45,7 +45,7 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
             key_sample: PRNGKey,
         ) -> Tuple[types.Action, types.Extra]:
             key_sample, key_network = jax.random.split(key_sample)
-            logits, _ = policy_network.apply(*params, observations, key_network)
+            logits, extras = policy_network.apply(*params, observations, key_network)
 
             if deterministic:
                 return ppo_networks.parametric_action_distribution.mode(logits), {}
@@ -64,6 +64,8 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
                 "log_prob": log_prob,
                 "raw_action": raw_actions,
                 "logits": logits,
+                "latent_mean": extras["latent_mean"],
+                "latent_logvar": extras["latent_logvar"],
             }
 
         return policy

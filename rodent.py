@@ -583,18 +583,18 @@ def get_config():
                         # Tracking rewards are computed using exp(-delta^2/sigma)
                         # sigma can be a hyperparameters to tune.
                         # Track the base x-y velocity (no z-velocity tracking.)
-                        tracking_lin_vel=1.5,
+                        tracking_lin_vel=150.0,
                         # Track the angular velocity along z-axis, i.e. yaw rate.
-                        tracking_ang_vel=0.8,
+                        tracking_ang_vel=80.0,
                         # Below are regularization terms, we roughly divide the
                         # terms to base state regularizations, joint
                         # regularizations, and other behavior regularizations.
                         # Penalize the base velocity in z direction, L2 penalty.
-                        lin_vel_z=-2.0,
+                        lin_vel_z=-0.0002,
                         # Penalize the base roll and pitch rate. L2 penalty.
-                        ang_vel_xy=-0.05,
+                        ang_vel_xy=-0.0005,
                         # Penalize non-zero roll and pitch angles. L2 penalty.
-                        orientation=-5.0,
+                        orientation=-0.5,
                         # L2 regularization of joint torques, |tau|^2.
                         torques=-0.0002,
                         # Penalize the change in the action and encourage smooth
@@ -605,7 +605,7 @@ def get_config():
                         # feet_air_time=0.2,
                         # Encourage no motion at zero command, L2 regularization
                         # |q - q_default|^2.
-                        stand_still=-0.5,
+                        stand_still=-0.05,
                         # Early termination penalty.
                         termination=-1.0,
                         # Penalizing foot slipping on the ground.

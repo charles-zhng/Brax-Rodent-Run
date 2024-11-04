@@ -207,12 +207,33 @@ def policy_params_fn(
     state = jit_reset(reset_rng)
 
     rollout = [state]
+    latent_logvars = []
+    latent_means = []
     for i in range(int(250 * rollout_env._steps_for_cur_frame)):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
         ctrl, extras = jit_inference_fn(obs, act_rng)
+        latent_means.append(extras["latent_mean"])
+        latent_logvars.append(extras["latent_logvar"])
         state = jit_step(state, ctrl)
         rollout.append(state)
+
+    # plot the statistics of each latent dim (representing means and logvars sampled)
+    latent_logvars = jp.stack(latent_logvars)
+    latent_means = jp.stack(latent_means)
+    latent_means_means = jp.mean(latent_means, axis=0)
+    latent_logvars_means = jp.mean(latent_logvars, axis=0)
+    latent_means_stds = jp.std(latent_means, axis=0)
+    latent_logvars_stds = jp.std(latent_logvars, axis=0)
+    for i in range(latent_means_means.shape[0]):
+        wandb.log(
+            {
+                f"latents/latent_means_mean{i}": latent_means_means[i],
+                f"latents/latent_means_std{i}": latent_means_stds[i],
+                f"latents/latent_logvars_mean{i}": latent_logvars_means[i],
+                f"latents/latent_logvars_std{i}": latent_logvars_stds[i],
+            }
+        )
 
     pos_rewards = [state.metrics["pos_reward"] for state in rollout]
     table = wandb.Table(
