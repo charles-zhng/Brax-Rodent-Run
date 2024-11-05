@@ -47,7 +47,7 @@ except:
 
 
 config = {
-    "env_name": "joystick",
+    "env_name": "run",
     "algo_name": "ppo",
     "task_name": "run",
     "num_envs": 512 * n_devices,
@@ -63,8 +63,8 @@ config = {
     "torque_actuators": True,
     "run_platform": "Harvard",
     "solver": "cg",
-    "iterations": 16,
-    "ls_iterations": 16,
+    "iterations": 8,
+    "ls_iterations": 8,
 }
 
 envs.register_environment("joystick", RodentJoystick)

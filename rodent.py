@@ -1099,7 +1099,7 @@ class RodentRun(PipelineEnv):
 
         task_obs, proprioceptive_obs = self._get_obs(data, jp.zeros(self.sys.nu))
         obs = jp.concatenate([task_obs, proprioceptive_obs])
-        info = {"task_obs_size": task_obs.size[-1]}
+        info = {"task_obs_size": task_obs.shape[-1]}
 
         reward, done, zero = jp.zeros(3)
         metrics = {
@@ -1151,7 +1151,7 @@ class RodentRun(PipelineEnv):
         flattened_vals, _ = ravel_pytree(data)
         num_nans = jp.sum(jp.isnan(flattened_vals))
         nan = jp.where(num_nans > 0, 1.0, 0.0)
-        done = jp.max([nan, done])
+        done = jp.max(jp.array([nan, done]))
 
         state.metrics.update(
             forward_reward=forward_reward,
