@@ -48,7 +48,9 @@ def make_inference_fn(ppo_networks: PPOImitationNetworks):
             logits, extras = policy_network.apply(*params, observations, key_network)
 
             if deterministic:
-                return ppo_networks.parametric_action_distribution.mode(logits), {}
+                return ppo_networks.parametric_action_distribution.mode(logits), {
+                    "extras": extras
+                }
 
             # Sample action based on logits (mean and logvar)
             raw_actions = parametric_action_distribution.sample_no_postprocessing(

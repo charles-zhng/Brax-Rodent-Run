@@ -127,7 +127,7 @@ def train(
     ] = custom_ppo_networks.make_intention_ppo_networks,
     tracking_task_obs_size: int = 470,
     continue_training: bool = False,
-    custom_wrap: bool = False,
+    custom_wrap: bool = False,  # use for tracking env
 ):
     """PPO training.
 
@@ -304,7 +304,6 @@ def train(
         print(f"restoring from checkpoint {checkpoint_path}")
         # env_steps = int(epath.Path(checkpoint_path).stem)
         ckptr = ocp.CompositeCheckpointHandler()
-        tracking_task_obs_size = 470
         tracking_obs_size = (
             env_state.obs.shape[-1] - task_obs_size + tracking_task_obs_size
         )

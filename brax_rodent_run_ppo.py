@@ -60,7 +60,7 @@ config = {
     "num_minibatches": 4 * n_devices,
     "num_updates_per_batch": 4,
     "learning_rate": 1e-4,
-    "kl_weight": 1e-2,
+    "kl_weight": 5e-4,
     "kl_loss": True,
     "clipping_epsilon": 0.2,
     "torque_actuators": True,
@@ -148,16 +148,15 @@ train_fn = functools.partial(
     seed=0,
     network_factory=functools.partial(
         custom_ppo_networks.make_intention_ppo_networks,
-        intention_latent_size=4,
-        encoder_hidden_layer_sizes=(8, 8),
-        decoder_hidden_layer_sizes=(8, 8),
-        value_hidden_layer_sizes=(8, 8),
+        intention_latent_size=60,
+        encoder_hidden_layer_sizes=(512, 512),
+        decoder_hidden_layer_sizes=(512, 512),
+        value_hidden_layer_sizes=(512, 512),
     ),
-    freeze_mask_fn=masks.create_decoder_mask,
+    freeze_mask_fn=None,
     checkpoint_path=None,
     continue_training=False,
     custom_wrap=True,  # custom wrappers to handle infos
-    create_running_statistics_mask=True,
 )
 
 import uuid
@@ -198,7 +197,6 @@ def policy_params_fn(
     num_steps, make_policy, params, rollout_key, checkpoint_dir=checkpoint_dir
 ):
     (processor_params, network_params, env_steps) = params
-    print(network_params.policy["params"]["decoder"]["hidden_0"]["kernel"])
     jit_inference_fn = jax.jit(
         make_policy((processor_params, network_params.policy), deterministic=True)
     )
@@ -216,6 +214,8 @@ def policy_params_fn(
         latent_means.append(extras["extras"]["latent_mean"])
         latent_logvars.append(extras["extras"]["latent_logvar"])
         state = jit_step(state, ctrl)
+        if state.done:
+            print(f"Done at step {i}")
         rollout.append(state)
 
     # plot the statistics of each latent dim (representing means and logvars sampled)

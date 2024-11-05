@@ -10,13 +10,13 @@ from dm_control.locomotion.walkers import rescale
 
 from brax.io import model
 import numpy as np
-from rodent import RodentJoystick
+from rodent import RodentJoystick, RodentRun
 import pickle
 import warnings
 from preprocessing.mjx_preprocess import process_clip_to_train
 from jax import numpy as jp
 import orbax.checkpoint as ocp
-
+from brax.envs.wrappers.training import AutoResetWrapper
 import custom_ppo as ppo
 import custom_wrappers
 from custom_losses import PPONetworkParams
@@ -68,6 +68,8 @@ config = {
 }
 
 envs.register_environment("joystick", RodentJoystick)
+envs.register_environment("run", RodentRun)
+
 
 clip_id = -1
 
@@ -79,14 +81,6 @@ env = envs.get_environment(
     iterations=config["iterations"],
     ls_iterations=config["ls_iterations"],
 )
-
-# Episode length is equal to (clip length - random init range - traj length) * steps per cur frame
-# Will work on not hardcoding these values later
-
-# Define mask for freezing weights
-# mask = {"params": {"encoder": "encoder", "decoder": "decoder", "bottleneck": "encoder"}}
-# value = {"params": "encoder"}
-# freeze_mask = PPONetworkParams(mask, value)
 
 
 train_fn = functools.partial(
@@ -155,7 +149,7 @@ def wandb_progress(num_steps, metrics):
 
 
 # Wrap the env in the brax autoreset and episode wrappers
-rollout_env = env
+rollout_env = AutoResetWrapper(env)
 # define the jit reset/step functions
 jit_reset = jax.jit(rollout_env.reset)
 jit_step = jax.jit(rollout_env.step)

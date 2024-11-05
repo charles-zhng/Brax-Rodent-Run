@@ -632,9 +632,9 @@ class RodentJoystick(PipelineEnv):
 
     def __init__(
         self,
-        obs_noise: float = 0.005,
+        obs_noise: float = 0.001,
         action_scale: float = 1.0,
-        kick_vel: float = 0.05,
+        kick_vel: float = 0.005,
         torque_actuators: bool = False,
         solver: str = "cg",
         iterations: int = 6,
@@ -1021,3 +1021,171 @@ class RodentJoystick(PipelineEnv):
     # ) -> Sequence[np.ndarray]:
     #     camera = camera or "track"
     #     return super().render(trajectory, camera=camera, width=width, height=height)
+
+
+class RodentRun(PipelineEnv):
+
+    def __init__(
+        self,
+        forward_reward_weight=1.25,
+        ctrl_cost_weight=0.1,
+        healthy_reward=5.0,
+        terminate_when_unhealthy=True,
+        healthy_z_range=(0.0325, 0.1),
+        reset_noise_scale=1e-3,
+        exclude_current_positions_from_observation=True,
+        torque_actuators: bool = False,
+        solver="cg",
+        iterations: int = 6,
+        ls_iterations: int = 6,
+        **kwargs,
+    ):
+        root = mjcf_dm.from_path(_XML_PATH)
+
+        # Convert to torque actuators
+        if torque_actuators:
+            for actuator in root.find_all("actuator"):
+                actuator.gainprm = [actuator.forcerange[1]]
+                del actuator.biastype
+                del actuator.biasprm
+
+        rescale.rescale_subtree(
+            root,
+            0.9,
+            0.9,
+        )
+        mj_model = mjcf_dm.Physics.from_mjcf_model(root).model.ptr
+        mj_model.opt.solver = {
+            "cg": mujoco.mjtSolver.mjSOL_CG,
+            "newton": mujoco.mjtSolver.mjSOL_NEWTON,
+        }[solver.lower()]
+        mj_model.opt.iterations = iterations
+        mj_model.opt.ls_iterations = ls_iterations
+
+        mj_model.opt.jacobian = 0
+
+        sys = mjcf_brax.load_model(mj_model)
+
+        kwargs["n_frames"] = kwargs.get("n_frames", 5)
+        kwargs["backend"] = "mjx"
+
+        super().__init__(sys, **kwargs)
+
+        self._forward_reward_weight = forward_reward_weight
+        self._ctrl_cost_weight = ctrl_cost_weight
+        self._healthy_reward = healthy_reward
+        self._terminate_when_unhealthy = terminate_when_unhealthy
+        self._healthy_z_range = healthy_z_range
+        self._reset_noise_scale = reset_noise_scale
+        self._exclude_current_positions_from_observation = (
+            exclude_current_positions_from_observation
+        )
+
+        self._torso_idx = mujoco.mj_name2id(
+            mj_model, mujoco.mju_str2Type("body"), "torso"
+        )
+
+    def reset(self, rng: jp.ndarray) -> State:
+        """Resets the environment to an initial state."""
+        rng, rng1, rng2 = jax.random.split(rng, 3)
+
+        low, hi = -self._reset_noise_scale, self._reset_noise_scale
+        qpos = self.sys.qpos0 + jax.random.uniform(
+            rng1, (self.sys.nq,), minval=low, maxval=hi
+        )
+        qvel = jax.random.uniform(rng2, (self.sys.nv,), minval=low, maxval=hi)
+
+        data = self.pipeline_init(qpos, qvel)
+
+        task_obs, proprioceptive_obs = self._get_obs(data, jp.zeros(self.sys.nu))
+        obs = jp.concatenate([task_obs, proprioceptive_obs])
+        info = {"task_obs_size": task_obs.size[-1]}
+
+        reward, done, zero = jp.zeros(3)
+        metrics = {
+            "forward_reward": zero,
+            "reward_linvel": zero,
+            "reward_quadctrl": zero,
+            "reward_alive": zero,
+            "x_position": zero,
+            "y_position": zero,
+            "distance_from_origin": zero,
+            "x_velocity": zero,
+            "y_velocity": zero,
+            "nan": zero,
+            "fall": zero,
+        }
+        return State(data, obs, reward, done, metrics, info=info)
+
+    def step(self, state: State, action: jp.ndarray) -> State:
+        """Runs one timestep of the environment's dynamics."""
+        data0 = state.pipeline_state
+        data = self.pipeline_step(data0, action)
+
+        com_before = data0.subtree_com[1]
+        com_after = data.subtree_com[1]
+        velocity = (com_after - com_before) / self.dt
+        forward_reward = self._forward_reward_weight * velocity[0]
+
+        min_z, max_z = self._healthy_z_range
+        is_healthy = jp.where(data.xpos[self._torso_idx] < min_z, 0.0, 1.0)
+        is_healthy = jp.where(data.xpos[self._torso_idx] > max_z, 0.0, is_healthy)
+        if self._terminate_when_unhealthy:
+            healthy_reward = self._healthy_reward
+        else:
+            healthy_reward = self._healthy_reward * is_healthy
+
+        ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
+
+        task_obs, proprioceptive_obs = self._get_obs(data, action)
+        obs = jp.concatenate([task_obs, proprioceptive_obs])
+        reward = forward_reward + healthy_reward - ctrl_cost
+        done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
+
+        # Handle nans during sim by resetting env
+        reward = jp.nan_to_num(reward)
+        obs = jp.nan_to_num(obs)
+
+        from jax.flatten_util import ravel_pytree
+
+        flattened_vals, _ = ravel_pytree(data)
+        num_nans = jp.sum(jp.isnan(flattened_vals))
+        nan = jp.where(num_nans > 0, 1.0, 0.0)
+        done = jp.max([nan, done])
+
+        state.metrics.update(
+            forward_reward=forward_reward,
+            reward_linvel=forward_reward,
+            reward_quadctrl=-ctrl_cost,
+            reward_alive=healthy_reward,
+            x_position=com_after[0],
+            y_position=com_after[1],
+            distance_from_origin=jp.linalg.norm(com_after),
+            x_velocity=velocity[0],
+            y_velocity=velocity[1],
+            nan=nan,
+            fall=1.0 - is_healthy,
+        )
+
+        return state.replace(pipeline_state=data, obs=obs, reward=reward, done=done)
+
+    def _get_obs(self, data: mjx.Data, action: jp.ndarray) -> jp.ndarray:
+        """Observes humanoid body position, velocities, and angles."""
+        task_obs = jp.concatenate(
+            [
+                data.qpos,
+                data.qvel,
+                data.cinert[1:].ravel(),
+                data.cvel[1:].ravel(),
+                data.qfrc_actuator,
+            ]
+        )
+
+        proprioceptive_obs = jp.concatenate(
+            [
+                data.qpos,
+                data.qvel,
+            ]
+        )
+
+        return task_obs, proprioceptive_obs
