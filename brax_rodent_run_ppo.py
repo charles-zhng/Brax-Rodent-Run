@@ -207,6 +207,7 @@ def policy_params_fn(
     rollout = [state]
     latent_logvars = []
     latent_means = []
+    was_done = -1
     for i in range(int(250 * rollout_env._steps_for_cur_frame)):
         _, act_rng = jax.random.split(act_rng)
         obs = state.obs
@@ -214,7 +215,8 @@ def policy_params_fn(
         latent_means.append(extras["extras"]["latent_mean"])
         latent_logvars.append(extras["extras"]["latent_logvar"])
         state = jit_step(state, ctrl)
-        if state.done:
+        if state.done and not was_done:
+            was_done = 1
             print(f"Done at step {i}")
         rollout.append(state)
 
