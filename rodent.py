@@ -1027,13 +1027,11 @@ class RodentRun(PipelineEnv):
 
     def __init__(
         self,
-        forward_reward_weight=1.25,
+        forward_reward_weight=5.0,
         ctrl_cost_weight=0.1,
-        healthy_reward=5.0,
-        terminate_when_unhealthy=True,
+        healthy_reward=1.0,
         healthy_z_range=(0.0325, 0.1),
         reset_noise_scale=1e-3,
-        exclude_current_positions_from_observation=True,
         torque_actuators: bool = False,
         solver="cg",
         iterations: int = 6,
@@ -1074,12 +1072,8 @@ class RodentRun(PipelineEnv):
         self._forward_reward_weight = forward_reward_weight
         self._ctrl_cost_weight = ctrl_cost_weight
         self._healthy_reward = healthy_reward
-        self._terminate_when_unhealthy = terminate_when_unhealthy
         self._healthy_z_range = healthy_z_range
         self._reset_noise_scale = reset_noise_scale
-        self._exclude_current_positions_from_observation = (
-            exclude_current_positions_from_observation
-        )
 
         self._torso_idx = mujoco.mj_name2id(
             mj_model, mujoco.mju_str2Type("body"), "torso"
@@ -1128,19 +1122,15 @@ class RodentRun(PipelineEnv):
         forward_reward = self._forward_reward_weight * velocity[0]
 
         min_z, max_z = self._healthy_z_range
-        is_healthy = jp.where(data.xpos[self._torso_idx] < min_z, 0.0, 1.0)
-        is_healthy = jp.where(data.xpos[self._torso_idx] > max_z, 0.0, is_healthy)
-        if self._terminate_when_unhealthy:
-            healthy_reward = self._healthy_reward
-        else:
-            healthy_reward = self._healthy_reward * is_healthy
+        fall = data.xpos[self._torso_idx][2] < min_z
+        fall |= data.xpos[self._torso_idx][2] > max_z
+        healthy_reward = self._healthy_reward
 
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
 
         task_obs, proprioceptive_obs = self._get_obs(data, action)
         obs = jp.concatenate([task_obs, proprioceptive_obs])
         reward = forward_reward + healthy_reward - ctrl_cost
-        done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
 
         # Handle nans during sim by resetting env
         reward = jp.nan_to_num(reward)
@@ -1150,8 +1140,8 @@ class RodentRun(PipelineEnv):
 
         flattened_vals, _ = ravel_pytree(data)
         num_nans = jp.sum(jp.isnan(flattened_vals))
-        nan = jp.where(num_nans > 0, 1.0, 0.0)
-        done = jp.max(jp.array([nan, done]))
+        nan = jp.where(num_nans > 0, True, False)
+        done = jp.array(fall | nan, dtype=jp.float32)
 
         state.metrics.update(
             forward_reward=forward_reward,
@@ -1163,8 +1153,8 @@ class RodentRun(PipelineEnv):
             distance_from_origin=jp.linalg.norm(com_after),
             x_velocity=velocity[0],
             y_velocity=velocity[1],
-            nan=nan,
-            fall=1.0 - is_healthy,
+            nan=jp.array(nan, dtype=jp.float32),
+            fall=jp.array(fall, dtype=jp.float32),
         )
 
         return state.replace(pipeline_state=data, obs=obs, reward=reward, done=done)
