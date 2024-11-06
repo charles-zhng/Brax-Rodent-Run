@@ -234,7 +234,8 @@ def policy_params_fn(
                 f"latents/latent_means_std{i}": latent_means_stds[i],
                 f"latents/latent_logvars_mean{i}": latent_logvars_means[i],
                 f"latents/latent_logvars_std{i}": latent_logvars_stds[i],
-            }
+            },
+            commit=False,
         )
 
     pos_rewards = [state.metrics["pos_reward"] for state in rollout]

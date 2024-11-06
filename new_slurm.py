@@ -35,7 +35,7 @@ def submit(task, gpu_type, num_gpus, job_name, mem, cpus, time, out_dir):
             }
     # Construct the SLURM script
     script = f"""#!/bin/bash
-#SBATCH -p gpu
+#SBATCH -p gpu,gpu_requeue
 #SBATCH --mem={mem}
 #SBATCH -c {cpus}
 #SBATCH -N 1
