@@ -1,4 +1,4 @@
-# Brax Rodent Run - Online Training Script
+# Brax Rodent Run (deprecated)
 
 ## Environment Setup
 
