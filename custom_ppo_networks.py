@@ -145,3 +145,63 @@ def make_encoderdecoder_ppo_networks(
         value_network=value_network,
         parametric_action_distribution=parametric_action_distribution,
     )
+
+
+def make_encoder_ppo_networks(
+    observation_size: int,
+    latent_size: int,
+    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
+    encoder_hidden_layer_sizes: Sequence[int] = (1024,) * 2,
+    value_hidden_layer_sizes: Sequence[int] = (1024,) * 2,
+) -> PPOImitationNetworks:
+    """Make Imitation PPO networks with preprocessor."""
+    parametric_action_distribution = distribution.NormalTanhDistribution(
+        event_size=latent_size
+    )
+    policy_network = custom_networks.make_encoder_policy(
+        parametric_action_distribution.param_size,
+        total_obs_size=observation_size,
+        preprocess_observations_fn=preprocess_observations_fn,
+        layer_sizes=encoder_hidden_layer_sizes,
+    )
+    value_network = networks.make_value_network(
+        observation_size,
+        preprocess_observations_fn=preprocess_observations_fn,
+        hidden_layer_sizes=value_hidden_layer_sizes,
+    )
+
+    return PPOImitationNetworks(
+        policy_network=policy_network,
+        value_network=value_network,
+        parametric_action_distribution=parametric_action_distribution,
+    )
+
+
+def make_decoder_ppo_networks(
+    observation_size: int,
+    action_size: int,
+    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
+    decoder_hidden_layer_sizes: Sequence[int] = (1024,) * 2,
+    value_hidden_layer_sizes: Sequence[int] = (1024,) * 2,
+) -> PPOImitationNetworks:
+    """Make Imitation PPO networks with preprocessor."""
+    parametric_action_distribution = distribution.NormalTanhDistribution(
+        event_size=action_size * 2
+    )
+    policy_network = custom_networks.make_decoder_policy(
+        parametric_action_distribution.param_size,
+        decoder_obs_size=observation_size,
+        preprocess_observations_fn=preprocess_observations_fn,
+        hidden_layer_sizes=decoder_hidden_layer_sizes,
+    )
+    value_network = networks.make_value_network(
+        observation_size,
+        preprocess_observations_fn=preprocess_observations_fn,
+        hidden_layer_sizes=value_hidden_layer_sizes,
+    )
+
+    return PPOImitationNetworks(
+        policy_network=policy_network,
+        value_network=value_network,
+        parametric_action_distribution=parametric_action_distribution,
+    )

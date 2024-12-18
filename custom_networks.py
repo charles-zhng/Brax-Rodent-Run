@@ -24,7 +24,6 @@ class VariationalLayer(nn.Module):
     def __call__(self, x):
         mean_x = nn.Dense(self.latent_size, name="mean")(x)
         logvar_x = nn.Dense(self.latent_size, name="logvar")(x)
-        # logvar_x = nn.sigmoid(logvar_x) * 3  # range of (-3, 3)
         return mean_x, logvar_x
 
 
@@ -59,7 +58,7 @@ def reparameterize(rng, mean, logvar):
 
 
 class IntentionNetwork(nn.Module):
-    """Full VAE model, encode -> decode with sampled actions"""
+    """Full VAE model, encode -> decode with sampled actions. Latents first."""
 
     encoder_layers: Sequence[int]
     decoder_layers: Sequence[int]
@@ -219,3 +218,57 @@ def make_random_intention_policy(
         init=lambda key: policy_module.init(key, dummy_total_obs, dummy_key),
         apply=apply,
     )
+
+
+def make_encoder_policy(
+    param_size: int,
+    total_obs_size: int,
+    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
+    hidden_layer_sizes: Sequence[int] = (1024, 1024),
+) -> IntentionNetwork:
+    """Creates an intention policy network."""
+
+    policy_module = MLP(
+        layer_sizes=list(hidden_layer_sizes) + [param_size],
+    )
+
+    def apply(processor_params, policy_params, obs, key):
+        obs = preprocess_observations_fn(obs, processor_params)
+        return policy_module.apply(policy_params, obs=obs, key=key)
+
+    dummy_total_obs = jnp.zeros((1, total_obs_size))
+    dummy_key = jax.random.PRNGKey(0)
+
+    return networks.FeedForwardNetwork(
+        init=lambda key: policy_module.init(key, dummy_total_obs, dummy_key),
+        apply=apply,
+    )
+
+
+def make_decoder_policy(
+    param_size: int,
+    decoder_obs_size: int,
+    preprocess_observations_fn: types.PreprocessObservationFn = types.identity_observation_preprocessor,
+    hidden_layer_sizes: Sequence[int] = (1024, 1024),
+) -> IntentionNetwork:
+    """Creates an intention policy network."""
+
+    policy_module = MLP(
+        layer_sizes=list(hidden_layer_sizes) + [param_size],
+    )
+
+    def apply(processor_params, policy_params, obs, key):
+        obs = preprocess_observations_fn(obs, processor_params)
+        return policy_module.apply(policy_params, obs=obs, key=key)
+
+    dummy_total_obs = jnp.zeros((1, decoder_obs_size))
+    dummy_key = jax.random.PRNGKey(0)
+
+    return networks.FeedForwardNetwork(
+        init=lambda key: policy_module.init(key, dummy_total_obs, dummy_key),
+        apply=apply,
+    )
+
+
+# TODO: make decoder poliy, and set up preprocessing so that the proprioceptive obs are normalized,
+# and the latent obs are not

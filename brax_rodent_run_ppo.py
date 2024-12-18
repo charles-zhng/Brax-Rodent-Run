@@ -28,6 +28,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 import os
 from absl import app
 from absl import flags
+import uuid
+import utils
 
 os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.95"
 os.environ["MUJOCO_GL"] = "egl"
@@ -153,17 +155,19 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(512, 512),
     ),
-    freeze_mask_fn=None,
     checkpoint_path=None,
-    continue_training=False,
     custom_wrap=True,  # custom wrappers to handle infos
 )
-
-import uuid
 
 # Generates a completely random UUID (version 4)
 run_id = uuid.uuid4()
 checkpoint_dir = os.path.abspath(f"./model_checkpoints/{run_id}")
+
+tracking_task_obs_size = 470
+# Save checkpoint metadata for easy loading later
+
+# may need to take some stuff out of the ppo function? or put this in the ppo function
+
 
 options = ocp.CheckpointManagerOptions(save_interval_steps=2)
 ckpt_mgr = ocp.CheckpointManager(
@@ -447,6 +451,4 @@ make_inference_fn, params, _ = train_fn(
     checkpoint_manager=ckpt_mgr,
 )
 
-final_save_path = f"{checkpoint_dir}/brax_ppo_rodent_run_finished"
-model.save_params(final_save_path, params)
-print(f"Run finished. Model saved to {final_save_path}")
+print(f"Run finished.")

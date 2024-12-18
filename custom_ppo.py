@@ -29,8 +29,9 @@ from brax.training import gradients
 from brax.training import pmap
 from brax.training import types
 
-# from brax.training.acme import running_statistics
-import masked_running_statistics as running_statistics
+from brax.training.acme import running_statistics
+
+# import masked_running_statistics as running_statistics
 from masked_running_statistics import RunningStatisticsState
 from brax.training.acme import specs
 import orbax.checkpoint as ocp
@@ -53,6 +54,7 @@ import orbax
 import custom_wrappers
 from etils import epath
 from pathlib import Path
+import utils
 
 InferenceParams = Tuple[running_statistics.NestedMeanStd, Params]
 Metrics = types.Metrics
@@ -120,13 +122,7 @@ def train(
     randomization_fn: Optional[
         Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
     ] = None,
-    freeze_mask_fn=None,
     checkpoint_path: Optional[Path] = None,
-    checkpoint_network_factory: types.NetworkFactory[
-        custom_ppo_networks.PPOImitationNetworks
-    ] = custom_ppo_networks.make_intention_ppo_networks,
-    tracking_task_obs_size: int = 470,
-    continue_training: bool = False,
     custom_wrap: bool = False,  # use for tracking env
 ):
     """PPO training.
@@ -274,18 +270,7 @@ def train(
         value=ppo_network.value_network.init(key_value),
     )
 
-    if freeze_mask_fn is not None:
-        optimizer = optax.multi_transform(
-            {
-                "learned": optax.adam(learning_rate=learning_rate),
-                "frozen": optax.set_to_zero(),
-            },
-            freeze_mask_fn(init_params),
-        )
-        print("Freezing layers")
-    else:
-        optimizer = optax.adam(learning_rate=learning_rate)
-        print("Not freezing any layers")
+    optimizer = optax.adam(learning_rate=learning_rate)
 
     training_state = TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
         optimizer_state=optimizer.init(
@@ -301,7 +286,7 @@ def train(
     running_statistics_mask = None
     # Load from checkpoint, and set params for decoder if freeze, or all if continuing
     if checkpoint_path is not None and epath.Path(checkpoint_path).exists():
-        print(f"restoring from checkpoint {checkpoint_path}")
+        print(f"Restoring from checkpoint {checkpoint_path}")
         # env_steps = int(epath.Path(checkpoint_path).stem)
         ckptr = ocp.CompositeCheckpointHandler()
         tracking_obs_size = (
@@ -331,40 +316,10 @@ def train(
         loaded_params = loaded_ckpt["params"]
         env_steps = loaded_ckpt["env_steps"]
 
-        # Only partially replace initial policy if freezing decoder
-        if freeze_mask_fn is not None:
-            print(f"Replacing decoder")
-            init_params.policy["params"]["decoder"] = loaded_params.policy["params"][
-                "decoder"
-            ]
-            running_statistics_mask = jnp.arange(env_state.obs.shape[-1]) < int(
-                task_obs_size
-            )
-            mean = training_state.normalizer_params.mean.at[task_obs_size:].set(
-                loaded_normalizer_params.mean[tracking_task_obs_size:]
-            )
-            std = training_state.normalizer_params.std.at[task_obs_size:].set(
-                loaded_normalizer_params.std[tracking_task_obs_size:]
-            )
-            summed_variance = training_state.normalizer_params.summed_variance.at[
-                task_obs_size:
-            ].set(loaded_normalizer_params.summed_variance[tracking_task_obs_size:])
-            normalizer_params = RunningStatisticsState(
-                count=jnp.zeros(()), mean=mean, summed_variance=summed_variance, std=std
-            )
-            assert (
-                running_statistics_mask.shape
-                == training_state.normalizer_params.mean.shape
-            )
-        else:
-            print("Replacing entire policy")
-            init_params = init_params.replace(policy=loaded_params.policy)
+        print(f"Continuing training from {checkpoint_path.resolve()}")
+        init_params = init_params.replace(policy=loaded_params.policy)
 
-        if continue_training:
-            print("replacing value network")
-            init_params = init_params.replace(value=loaded_params.value)
-        else:
-            env_steps = 0
+        init_params = init_params.replace(value=loaded_params.value)
 
         training_state = (
             TrainingState(  # pytype: disable=wrong-arg-types  # jax-ndarray
@@ -372,7 +327,7 @@ def train(
                     init_params
                 ),  # pytype: disable=wrong-arg-types  # numpy-scalars
                 params=init_params,
-                normalizer_params=normalizer_params,
+                normalizer_params=loaded_normalizer_params,
                 env_steps=env_steps,
             )
         )
@@ -570,6 +525,19 @@ def train(
         )
         logging.info(metrics)
         progress_fn(0, metrics)
+
+    checkpoint_metadata = {
+        "encoder_hidden_layer_sizes": list((512, 512)),
+        "decoder_hidden_layer_sizes": list((512, 512)),
+        "value_hidden_layer_sizes": list((512, 512)),
+        "intention_latent_size": 60,
+        "tracking_obs_size": int(tracking_obs_size),  # 617
+        "tracking_task_obs_size": int(tracking_task_obs_size),  # 470
+        "action_size": int(env.action_size),  # 38
+    }
+
+    file_path = checkpoint_manager.directory.resolve() / "metadata.yaml"
+    utils.save_yaml(checkpoint_metadata, file_path)
 
     training_metrics = {}
     training_walltime = 0

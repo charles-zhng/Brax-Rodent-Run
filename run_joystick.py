@@ -7,7 +7,7 @@ import mujoco
 from brax import envs
 from dm_control import mjcf as mjcf_dm
 from dm_control.locomotion.walkers import rescale
-
+import utils
 from brax.io import model
 import numpy as np
 from rodent import RodentJoystick, RodentRun
@@ -23,6 +23,7 @@ from custom_losses import PPONetworkParams
 import custom_ppo_networks
 import network_masks as masks
 from pathlib import Path
+from brax.training.acme import running_statistics
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -65,6 +66,7 @@ config = {
     "solver": "cg",
     "iterations": 8,
     "ls_iterations": 8,
+    "decoder_path": None,
 }
 
 envs.register_environment("joystick", RodentJoystick)
@@ -82,6 +84,40 @@ env = envs.get_environment(
     ls_iterations=config["ls_iterations"],
 )
 
+
+# If I want to load a decoder, wrap env in high level decoder
+if config["decoder_path"]:
+    metadata = utils.load_yaml(checkpoint_dir.resolve() / "metadata.yaml")
+
+    print(f"Replacing decoder")
+    loaded_ckpt = utils.load_checkpoint()
+    # TODO: create a decoder only network and an inference function for it
+    # Then init the params, and set them to be the loaded decoder params,
+    # and normalize the obs appropriately--proprioceptive obs are normalized
+    # by the loaded running statistics, while the latents are not normalized.
+    # How to only normalize the obs?
+    decoder_params.policy["params"]["decoder"] = loaded_params.policy["params"][
+        "decoder"
+    ]
+    running_statistics_mask = jp.arange(env_state.obs.shape[-1]) < int(task_obs_size)
+
+    ppo_network = custom_ppo_networks.make_decoder_ppo_networks(
+        observation_size=metadata["intention_latent_size"]
+        + metadata["tracking_obs_size"]
+        - metadata["tracking_task_obs_size"],
+        action_size=metadata["action_size"],
+        preprocess_observations_fn=running_statistics.normalize,
+        decoder_hidden_layer_sizes=metadata["decoder_hidden_layer_sizes"],
+        value_hidden_layer_sizes=metadata["value_hidden_layer_sizes"],
+    )
+    decoder_inference_fn = custom_ppo_networks.make_inference_fn(ppo_network)
+
+    def get_decoder_obs(state):
+        return jp.concatenate([state.pipeline_state.qpos, state.pipeline_state.qvel])
+
+    env = custom_wrappers.HighLevelWrapper(
+        env, decoder_inference_fn=None, get_decoder_state_obs_fn=get_decoder_obs
+    )
 
 train_fn = functools.partial(
     ppo.train,
@@ -117,26 +153,23 @@ train_fn = functools.partial(
         decoder_hidden_layer_sizes=(512, 512),
         value_hidden_layer_sizes=(512, 512),
     ),
-    freeze_mask_fn=masks.create_decoder_mask,
-    checkpoint_path=Path("./f910c0ea-0dd1-4b58-bca0-9fa4705cb2d0/34"),
-    continue_training=False,
+    checkpoint_path=Path("./0ce773e7-1d50-4475-b338-9b5f6510c56c/84"),
 )
 
 import uuid
 
 # Generates a completely random UUID (version 4)
 run_id = uuid.uuid4()
-checkpoint_dir = os.path.abspath(f"./model_checkpoints/{run_id}")
+checkpoint_dir = Path(f"./model_checkpoints/{run_id}")
 
 options = ocp.CheckpointManagerOptions(save_interval_steps=2)
 ckpt_mgr = ocp.CheckpointManager(
-    checkpoint_dir,
+    checkpoint_dir.resolve(),
     item_names=("normalizer_params", "params", "env_steps"),
     options=options,
 )
 
 run = wandb.init(project="joystick_rat", config=config, notes=f"")
-
 
 wandb.run.name = (
     f"{config['env_name']}_{config['task_name']}_{config['algo_name']}_{run_id}"
@@ -199,6 +232,4 @@ make_inference_fn, params, _ = train_fn(
     checkpoint_manager=ckpt_mgr,
 )
 
-final_save_path = f"{checkpoint_dir}/brax_ppo_rodent_run_finished"
-model.save_params(final_save_path, params)
-print(f"Run finished. Model saved to {final_save_path}")
+print(f"Run finished.")

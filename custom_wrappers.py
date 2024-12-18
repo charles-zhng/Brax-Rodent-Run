@@ -124,3 +124,23 @@ class EvalClipWrapperTracking(Wrapper):
         }
 
         return self.reset_from_clip(rng, info, noise=False)
+
+
+class HighLevelWrapper(Wrapper):
+    """Loads a 'decoder' and calls it to get the ctrl used in the actual step"""
+
+    def __init__(self, env, decoder_inference_fn, get_decoder_state_obs_fn):
+        self._decoder_inference_fn = decoder_inference_fn
+        self._get_decoder_state_obs_fn = get_decoder_state_obs_fn
+        super().__init__(env)
+
+    def step(self, state: State, latents: jax.Array) -> State:
+        decoder_state_obs = self._get_decoder_state_obs_fn(state)
+        action = self._decoder_inference_fn(
+            jp.concatenate([latents, decoder_state_obs])
+        )
+        return self.env.step(state, action)
+
+
+"""Wrap env in HighLevelWrapper in run_joystick, so also load the decoder there too.
+Everyone else can stay the same"""
